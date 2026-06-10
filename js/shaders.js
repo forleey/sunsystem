@@ -95,18 +95,25 @@ void main(){
 `;
 
 export const PLANET_V = /* glsl */`
-varying vec3 vN; varying vec3 vP; varying vec3 vWp;
+varying vec3 vN; varying vec3 vP; varying vec3 vWp; varying vec2 vUv;
 void main(){
   vN = normalize(mat3(modelMatrix) * normal);
   vP = position;
+  vUv = uv;
   vWp = (modelMatrix*vec4(position,1.0)).xyz;
   gl_Position = projectionMatrix*modelViewMatrix*vec4(position,1.0);
 }
 `;
 export const PLANET_F = NOISE + /* glsl */`
-varying vec3 vN; varying vec3 vP; varying vec3 vWp;
+varying vec3 vN; varying vec3 vP; varying vec3 vWp; varying vec2 vUv;
 uniform vec3 uC1,uC2,uC3,uSunDir,uCamPos;
 uniform float uTime,uSeed;
+#ifdef TYPE_EARTH
+uniform sampler2D uDayMap, uNightMap, uCloudMap;
+#endif
+#ifdef TYPE_MOON
+uniform sampler2D uDayMap;
+#endif
 void main(){
   vec3 p = normalize(vP) + vec3(uSeed*17.0);
   vec3 n = normalize(vN);
@@ -136,10 +143,7 @@ void main(){
   col = mix(col, uC3c(), smoothstep(0.55,0.95,cr));
 #endif
 #ifdef TYPE_MOON
-  float m = fbm(p*3.5);
-  float cr = pow(ridged(p*9.0),2.0);
-  col = mix(uC2c(), uC1c(), m);
-  col = mix(col, uC3c(), cr*0.55);
+  col = texture2D(uDayMap, vUv).rgb * 1.05;
 #endif
 #ifdef TYPE_VENUS
   float m = fbm(p*2.6 + vec3(uTime*0.004,0.0,0.0));
@@ -148,22 +152,14 @@ void main(){
   col = mix(col, uC3c(), smoothstep(0.6,1.0,m)*0.7);
 #endif
 #ifdef TYPE_EARTH
-  float cont = fbm(p*2.3);
-  float landM = smoothstep(0.47,0.50,cont);
-  float detail = fbm(p*7.0);
-  vec3 land = mix(vec3(0.23,0.43,0.16), vec3(0.55,0.45,0.25), smoothstep(0.3,0.75,detail));
-  land = mix(land, vec3(0.5,0.42,0.3), smoothstep(0.62,0.72,cont));
-  vec3 ocean = mix(uC1c()*0.55, uC1c(), smoothstep(0.2,0.5,detail));
-  float ice = smoothstep(0.82,0.93,abs(normalize(vP).y) + detail*0.06);
-  col = mix(ocean, land, landM);
-  col = mix(col, vec3(0.93,0.96,1.0), ice);
-  spec = (1.0-landM)*(1.0-ice);
-  float cl = smoothstep(0.5,0.78, fbm(p*4.0 + vec3(uTime*0.0025, 0.0, uTime*0.001)));
-  col = mix(col, vec3(1.0), cl*0.85);
-  spec *= (1.0-cl);
+  vec3 albedo = texture2D(uDayMap, vUv).rgb;
+  float cl = texture2D(uCloudMap, vec2(vUv.x + uTime*8.0e-7, vUv.y)).r;
+  col = mix(albedo, vec3(1.0), cl*0.9);
+  float ocean = smoothstep(0.03, 0.12, albedo.b - albedo.r);   // water reads blue in the day map
+  spec = ocean * (1.0 - cl);
   float night = 1.0 - smoothstep(-0.2, 0.05, ndl);
-  float city = smoothstep(0.80,0.97, vnoise(p*85.0)) * landM * (1.0-ice) * (1.0-cl*0.7);
-  emis = vec3(1.0,0.72,0.35) * city * night * 0.5;
+  vec3 lights = texture2D(uNightMap, vUv).rgb;
+  emis = lights * night * (1.0 - cl*0.8) * 1.2;
 #endif
 
   vec3 h = normalize(sd+vd);

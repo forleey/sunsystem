@@ -47,3 +47,7 @@ Sliders: time warp (1×–10⁹×), gravity G multiplier, planet visual size (1�
 - `js/main.js` — wiring + frame loop (with hidden-tab fallback ticker)
 
 Known simplification: the Milky Way skybox stays fixed during the intergalactic trip (no parallax for the home galaxy).
+
+## Credits
+
+Earth and Moon texture maps (`textures/`) by [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), based on NASA imagery. All other surfaces are procedural GLSL.

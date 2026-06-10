@@ -8,6 +8,14 @@ import {
 } from './shaders.js';
 
 const TYPE_DEF = { rock: 'TYPE_ROCK', gas: 'TYPE_GAS', ice: 'TYPE_ICE', earth: 'TYPE_EARTH', venus: 'TYPE_VENUS', moon: 'TYPE_MOON' };
+
+const texLoader = new THREE.TextureLoader();
+function loadTex(file) {
+  const t = texLoader.load('./textures/' + file);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
 const ATMO = {
   Earth: [0x4d9aff, 1.025], Venus: [0xe8c79a, 1.03], Mars: [0xd88a5a, 1.02],
   Jupiter: [0xd8b890, 1.012], Saturn: [0xe8d8a8, 1.012], Uranus: [0xa8e0dc, 1.015], Neptune: [0x5a78d8, 1.015], Titan: null,
@@ -56,6 +64,13 @@ export class SystemView {
       uCamPos: { value: new THREE.Vector3() }, uTime: { value: 0 }, uSeed: { value: Math.abs(d.a % 1000) / 1000 + 0.1 },
     };
     this.camPosU.push(uniforms.uCamPos);
+    if (b.name === 'Earth') {
+      uniforms.uDayMap = { value: loadTex('2k_earth_daymap.jpg') };
+      uniforms.uNightMap = { value: loadTex('2k_earth_nightmap.jpg') };
+      uniforms.uCloudMap = { value: loadTex('2k_earth_clouds.jpg') };
+    } else if (b.name === 'Moon') {
+      uniforms.uDayMap = { value: loadTex('2k_moon.jpg') };
+    }
     const mat = new THREE.ShaderMaterial({
       vertexShader: PLANET_V, fragmentShader: PLANET_DEFS_PRE + PLANET_F,
       uniforms, defines: { [TYPE_DEF[d.type]]: 1 },
