@@ -24,6 +24,7 @@ export class ShipView {
     this.fwd = new THREE.Vector3();
     this.tmp = new THREE.Vector3();
     this.tmpV = new THREE.Vector3();
+    this.angVel = new THREE.Vector3();   // local pitch/yaw/roll rates, rad/s — rotational inertia
   }
 
   buildMesh() {
@@ -98,14 +99,25 @@ export class ShipView {
   update(focusPos, camera, dtWall, keys, shipG) {
     const sim = this.sim, ship = sim.ship;
     const dt = Math.min(dtWall, 0.05);
+    // rotational inertia: keys command angular acceleration; releasing lets the
+    // ship keep turning while RCS-style damping bleeds the rate back to zero
+    const ACC = 2.2, MAX = 1.5, DAMP = 1.6, av = this.angVel;
+    const inp = {
+      x: (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0),
+      y: (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0),
+      z: (keys.has('KeyQ') ? 1 : 0) - (keys.has('KeyE') ? 1 : 0),
+    };
+    for (const a of ['x', 'y', 'z']) {
+      if (inp[a]) av[a] = Math.max(-MAX, Math.min(MAX, av[a] + inp[a] * ACC * dt));
+      else {
+        av[a] *= Math.exp(-DAMP * dt);
+        if (Math.abs(av[a]) < 1e-4) av[a] = 0;
+      }
+    }
     const rot = new THREE.Quaternion(), ax = new THREE.Vector3();
-    const rate = 1.4 * dt;
-    if (keys.has('KeyW')) { rot.setFromAxisAngle(ax.set(1, 0, 0), -rate); this.quat.multiply(rot); }
-    if (keys.has('KeyS')) { rot.setFromAxisAngle(ax.set(1, 0, 0), rate); this.quat.multiply(rot); }
-    if (keys.has('KeyA')) { rot.setFromAxisAngle(ax.set(0, 1, 0), rate); this.quat.multiply(rot); }
-    if (keys.has('KeyD')) { rot.setFromAxisAngle(ax.set(0, 1, 0), -rate); this.quat.multiply(rot); }
-    if (keys.has('KeyQ')) { rot.setFromAxisAngle(ax.set(0, 0, 1), rate * 1.2); this.quat.multiply(rot); }
-    if (keys.has('KeyE')) { rot.setFromAxisAngle(ax.set(0, 0, 1), -rate * 1.2); this.quat.multiply(rot); }
+    if (av.x) { rot.setFromAxisAngle(ax.set(1, 0, 0), av.x * dt); this.quat.multiply(rot); }
+    if (av.y) { rot.setFromAxisAngle(ax.set(0, 1, 0), av.y * dt); this.quat.multiply(rot); }
+    if (av.z) { rot.setFromAxisAngle(ax.set(0, 0, 1), av.z * 1.2 * dt); this.quat.multiply(rot); }
 
     this.fwd.set(0, 0, -1).applyQuaternion(this.quat);
 
@@ -118,6 +130,7 @@ export class ShipView {
       }
     } else {
       // visually align with autopilot thrust vector
+      this.angVel.set(0, 0, 0);
       toRender(ship.thrustDir, this.tmp).normalize();
       const target = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), this.tmp);
       this.quat.slerp(target, Math.min(1, dt * 2.5));

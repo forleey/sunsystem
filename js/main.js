@@ -98,8 +98,8 @@ function startHomeJump() {
 }
 
 window.addEventListener('keydown', e => {
-  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
-  if (e.code === 'Space') e.preventDefault();
+  if (e.target.tagName === 'SELECT') return;   // keep arrow/enter nav inside the focus dropdown
+  if (e.code === 'Space') e.preventDefault();  // never scroll / re-trigger a focused control
   keys.add(e.code);
   if (e.code === 'KeyJ') startAndromedaJump();
   if (e.code === 'KeyH') startHomeJump();
@@ -111,6 +111,13 @@ window.addEventListener('keydown', e => {
   if (DIGITS[e.code]) applyFocus(DIGITS[e.code]);
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
+window.addEventListener('blur', () => keys.clear());   // no stuck thrust when the tab loses focus
+
+// panel controls steal keyboard focus after a click/drag — give it back to the helm
+for (const el of document.querySelectorAll('.panel input, .panel select, .panel button')) {
+  el.addEventListener('change', () => el.blur());
+  el.addEventListener('pointerup', () => setTimeout(() => el.blur(), 0));
+}
 
 // ---------- HUD helpers ----------
 function nearestBodyText() {
