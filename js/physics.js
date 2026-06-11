@@ -70,6 +70,7 @@ export class Ship {
     this.u = new V3();            // proper velocity (gamma*v) for relativistic mode
     this.thrustDir = new V3(1, 0, 0);
     this.thrustAcc = 0;           // km/s^2, current commanded
+    this.throttle = 0;            // 0..1, ramps up while thrust is held
     this.autopilot = null;        // {targetFn, accel, arriveR, label}
     this.lastG = 0;
   }
@@ -125,6 +126,7 @@ export class Sim {
     s.vel.copy(e.vel).add(new V3(0, v, 0));
     s.u.copy(s.vel).scale(1 / Math.sqrt(Math.max(1e-12, 1 - (s.vel.len() / C_KMS) ** 2)));
     s.thrustAcc = 0;
+    s.throttle = 0;
     s.autopilot = null;
   }
 

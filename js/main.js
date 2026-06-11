@@ -99,13 +99,13 @@ function startHomeJump() {
 
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'SELECT') return;   // keep arrow/enter nav inside the focus dropdown
-  if (e.code === 'Space') e.preventDefault();  // never scroll / re-trigger a focused control
+  if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();  // helm keys never drive UI controls
   keys.add(e.code);
   if (e.code === 'KeyJ') startAndromedaJump();
   if (e.code === 'KeyH') startHomeJump();
   if (e.code === 'KeyF') applyFocus('Starship');
   if (e.code === 'KeyX') {
-    sim.ship.autopilot = null; sim.ship.thrustAcc = 0;
+    sim.ship.autopilot = null; sim.ship.thrustAcc = 0; sim.ship.throttle = 0;
     ui.setWarp(1); ui.toast('Thrust cut — coasting on inertia');
   }
   if (DIGITS[e.code]) applyFocus(DIGITS[e.code]);

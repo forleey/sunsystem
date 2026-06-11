@@ -103,8 +103,8 @@ export class ShipView {
     // ship keep turning while RCS-style damping bleeds the rate back to zero
     const ACC = 2.2, MAX = 1.5, DAMP = 1.6, av = this.angVel;
     const inp = {
-      x: (keys.has('KeyS') ? 1 : 0) - (keys.has('KeyW') ? 1 : 0),
-      y: (keys.has('KeyA') ? 1 : 0) - (keys.has('KeyD') ? 1 : 0),
+      x: (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0),
+      y: (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0),
       z: (keys.has('KeyQ') ? 1 : 0) - (keys.has('KeyE') ? 1 : 0),
     };
     for (const a of ['x', 'y', 'z']) {
@@ -122,12 +122,14 @@ export class ShipView {
     this.fwd.set(0, 0, -1).applyQuaternion(this.quat);
 
     if (!ship.autopilot) {
+      // throttle spools up over ~10 s to the slider g — no instant full burn
       if (keys.has('Space')) {
-        ship.thrustAcc = shipG * G_ACC;
+        ship.throttle = Math.min(1, ship.throttle + dt / 10);
         fromRender(this.fwd, ship.thrustDir).norm();
       } else {
-        ship.thrustAcc = 0;
+        ship.throttle = 0;
       }
+      ship.thrustAcc = ship.throttle * shipG * G_ACC;
     } else {
       // visually align with autopilot thrust vector
       this.angVel.set(0, 0, 0);
