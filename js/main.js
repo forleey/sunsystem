@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js';
-import { Sim, V3 } from './physics.js';
-import { SystemView } from './bodies3d.js';
-import { ShipView } from './ship3d.js';
-import { UI } from './ui.js';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js';
+import { createStage, makeSky } from './scene.js?v=7';
+import { Sim, V3 } from './physics.js?v=7';
+import { SystemView } from './bodies3d.js?v=7';
+import { ShipView } from './ship3d.js?v=7';
+import { UI } from './ui.js?v=7';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=7';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -121,15 +121,17 @@ for (const el of document.querySelectorAll('.panel input, .panel select, .panel 
 }
 
 // ---------- HUD helpers ----------
-function nearestBodyText() {
+function hudExtra() {
   let best = null, bd = Infinity;
+  const s = sim.ship;
   for (const b of sim.bodies) {
-    const d = Math.hypot(b.pos.x - sim.ship.pos.x, b.pos.y - sim.ship.pos.y, b.pos.z - sim.ship.pos.z) - b.r;
+    const d = Math.hypot(b.pos.x - s.pos.x, b.pos.y - s.pos.y, b.pos.z - s.pos.z) - b.r;
     if (d < bd) { bd = d; best = b; }
   }
-  const aD = Math.hypot(andromedaPos.x - sim.ship.pos.x, andromedaPos.y - sim.ship.pos.y, andromedaPos.z - sim.ship.pos.z);
-  if (aD < bd) return 'Andromeda core · ' + fmtKm(aD);
-  return best.name + ' · ' + fmtKm(Math.max(0, bd));
+  const relSpeed = Math.hypot(s.vel.x - best.vel.x, s.vel.y - best.vel.y, s.vel.z - best.vel.z);
+  const aD = Math.hypot(andromedaPos.x - s.pos.x, andromedaPos.y - s.pos.y, andromedaPos.z - s.pos.z);
+  const nearest = aD < bd ? 'Andromeda core · ' + fmtKm(aD) : best.name + ' · ' + fmtKm(Math.max(0, bd));
+  return { nearest, relName: best.name, relSpeed };
 }
 
 // ---------- main loop ----------
@@ -171,7 +173,7 @@ function frameBody(now) {
   sim.step(dtWall * ui.state.warp);
 
   focusPos(fPos);
-  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
+  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG, dtWall * ui.state.warp);
   system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
 
   controls.minDistance = Math.max(focusRadiusKm() * 1.25, focusName === 'Starship' ? 0.45 : 1);
@@ -179,7 +181,7 @@ function frameBody(now) {
 
   stage.bloom.strength = ui.state.bloom;
   ui.updateLabels(fPos, stage.camera, focusName);
-  ui.updateHUD({ nearest: nearestBodyText() });
+  ui.updateHUD(hudExtra());
 
   stage.composer.render();
 }

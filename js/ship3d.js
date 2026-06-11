@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js';
-import { G_ACC } from './data.js';
+import { toRender } from './scene.js?v=7';
+import { G_ACC } from './data.js?v=7';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -25,6 +25,49 @@ export class ShipView {
     this.tmp = new THREE.Vector3();
     this.tmpV = new THREE.Vector3();
     this.angVel = new THREE.Vector3();   // local pitch/yaw/roll rates, rad/s — rotational inertia
+    this.buildDust(scene);
+  }
+
+  // co-moving debris specks around the ship: motionless while coasting with them,
+  // streaming past under thrust — makes acceleration readable at realistic scales
+  buildDust(scene) {
+    const N = this.dustN = 360, R = this.dustR = 7;        // km
+    this.dustP = new Float64Array(N * 3);                  // world pos (physics frame)
+    this.dustV = new Float64Array(N * 3);                  // frozen velocity at spawn
+    this.dustLive = new Uint8Array(N);                     // 0 = needs respawn
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(N * 3), 3));
+    this.dustGeo = geo;
+    const pts = new THREE.Points(geo, new THREE.PointsMaterial({
+      color: 0x93a8c8, size: 0.035, transparent: true, opacity: 0.55,
+      blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
+    }));
+    pts.frustumCulled = false;
+    scene.add(pts);
+  }
+
+  updateDust(focusPos, simDt) {
+    const s = this.sim.ship, N = this.dustN, R = this.dustR;
+    const P = this.dustP, V = this.dustV, out = this.dustGeo.attributes.position.array;
+    for (let i = 0; i < N; i++) {
+      const j = i * 3;
+      if (this.dustLive[i]) { P[j] += V[j] * simDt; P[j + 1] += V[j + 1] * simDt; P[j + 2] += V[j + 2] * simDt; }
+      const dx = P[j] - s.pos.x, dy = P[j + 1] - s.pos.y, dz = P[j + 2] - s.pos.z;
+      if (!this.dustLive[i] || dx * dx + dy * dy + dz * dz > R * R) {
+        const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2;
+        const r = R * Math.cbrt(Math.random()), q = Math.sqrt(1 - u * u);
+        P[j] = s.pos.x + r * q * Math.cos(th);
+        P[j + 1] = s.pos.y + r * q * Math.sin(th);
+        P[j + 2] = s.pos.z + r * u;
+        V[j] = s.vel.x; V[j + 1] = s.vel.y; V[j + 2] = s.vel.z;
+        this.dustLive[i] = 1;
+      }
+      // render relative to focus, ecliptic → render axes (x, z, -y)
+      out[j] = P[j] - focusPos.x;
+      out[j + 1] = P[j + 2] - focusPos.z;
+      out[j + 2] = -(P[j + 1] - focusPos.y);
+    }
+    this.dustGeo.attributes.position.needsUpdate = true;
   }
 
   buildMesh() {
@@ -95,8 +138,8 @@ export class ShipView {
     g.add(lamp); this.lamp = lamp;
   }
 
-  // keys: Set of pressed key codes; shipG: slider value in g
-  update(focusPos, camera, dtWall, keys, shipG) {
+  // keys: Set of pressed key codes; shipG: slider value in g; simDt: warped sim seconds this frame
+  update(focusPos, camera, dtWall, keys, shipG, simDt = 0) {
     const sim = this.sim, ship = sim.ship;
     const dt = Math.min(dtWall, 0.05);
     // rotational inertia: keys command angular acceleration; releasing lets the
@@ -142,12 +185,15 @@ export class ShipView {
     this.tmpV.set(ship.pos.x - focusPos.x, ship.pos.y - focusPos.y, ship.pos.z - focusPos.z);
     toRender(this.tmpV, this.grp.position);
 
-    // engine feedback
+    this.updateDust(focusPos, simDt);
+
+    // engine feedback — visible glow from the first sliver of throttle
     const thr = Math.min(1, ship.lastG / Math.max(shipG, 1));
+    const lit = ship.autopilot ? 1 : ship.throttle > 0 ? 1 : 0;
     const pulse = 0.85 + 0.15 * Math.sin(performance.now() * 0.02);
     for (const p of this.plumes) {
-      p.scale.set(1 + thr * 0.3, Math.max(0.01, thr * (0.9 + Math.min(1.2, Math.log10(1 + ship.lastG) * 0.25))) * pulse, 1 + thr * 0.3);
-      p.material.opacity = 0.08 + 0.4 * Math.min(1, thr);
+      p.scale.set(1 + thr * 0.3, Math.max(lit * 0.25, thr * (0.9 + Math.min(1.2, Math.log10(1 + ship.lastG) * 0.25))) * pulse, 1 + thr * 0.3);
+      p.material.opacity = lit * 0.22 + 0.35 * Math.min(1, thr);
     }
     for (const b of this.bussards) b.material.emissiveIntensity = 1.4 + pulse * 0.8;
     this.lamp.intensity = ship.lastG > 0 ? 0.8 : 0;

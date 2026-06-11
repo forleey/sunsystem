@@ -1,7 +1,7 @@
 // Sliders, HUD, body labels.
 import * as THREE from 'three';
-import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js';
-import { toRender } from './scene.js';
+import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=7';
+import { toRender } from './scene.js?v=7';
 
 const $ = id => document.getElementById(id);
 
@@ -126,8 +126,11 @@ export class UI {
     const sim = this.sim, ship = sim.ship;
     $('h-date').textContent = fmtDate(sim.time);
     $('h-warp').textContent = fmtWarp(this.state.warp) + (sim.relativistic ? '  ·  c-limit ON' : '');
-    const spd = ship.speed();
-    $('h-speed').textContent = fmtSpeed(spd) + (spd > 0.01 * C_KMS && spd < 10 * C_KMS ? ` (${(spd / C_KMS * 100).toFixed(1)}% c)` : '');
+    const spd = extra.relSpeed != null ? extra.relSpeed : ship.speed();
+    $('h-speed').textContent = fmtSpeed(spd)
+      + (spd > 0.01 * C_KMS && spd < 10 * C_KMS ? ` (${(spd / C_KMS * 100).toFixed(1)}% c)` : '')
+      + (extra.relName ? `  rel ${extra.relName}` : '');
+    $('h-throttle').textContent = ship.autopilot ? '100% AP' : Math.round(ship.throttle * 100) + '%';
     $('h-acc').textContent = ship.lastG >= 1000
       ? Math.round(ship.lastG).toLocaleString('en-US') + ' g'
       : ship.lastG.toFixed(1) + ' g';
