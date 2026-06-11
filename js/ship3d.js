@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=15';
-import { C_KMS } from './data.js?v=15';
+import { toRender } from './scene.js?v=16';
+import { C_KMS } from './data.js?v=16';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -74,25 +74,7 @@ export class ShipView {
       pylon.position.set(sx * 0.0165, -0.006, 0.055);
       pylon.rotation.z = sx * 0.6;
       g.add(pylon);
-      // engine exhaust glow
     }
-    this.plumes = [];
-    for (const sx of [-1, 1]) {
-      const plume = new THREE.Mesh(
-        new THREE.ConeGeometry(0.0028, 0.05, 16, 1, true),
-        new THREE.MeshBasicMaterial({
-          color: 0x2f7fc4, transparent: true, opacity: 0.32,
-          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-        })
-      );
-      plume.rotation.x = -Math.PI / 2;
-      plume.position.set(sx * 0.031, 0.012, 0.112);
-      plume.scale.set(1, 0.01, 1);
-      g.add(plume); this.plumes.push(plume);
-    }
-    const lamp = new THREE.PointLight(0x88bbff, 0.0, 0.5, 2);
-    lamp.position.set(0, 0.02, 0.1);
-    g.add(lamp); this.lamp = lamp;
   }
 
   // keys: Set of pressed key codes; shipG: slider value in g
@@ -147,15 +129,5 @@ export class ShipView {
     this.tmpV.set(ship.pos.x - focusPos.x, ship.pos.y - focusPos.y, ship.pos.z - focusPos.z);
     toRender(this.tmpV, this.grp.position);
 
-    // engine feedback — full glow whenever the drive is burning (incl. retro-brake)
-    const lit = ship.autopilot || ship.thrustAcc > 0 || ship.braking ? 1 : 0;
-    const thr = lit;
-    const pulse = 0.85 + 0.15 * Math.sin(performance.now() * 0.02);
-    for (const p of this.plumes) {
-      p.scale.set(1 + thr * 0.3, Math.max(lit * 0.25, thr * (0.9 + Math.min(1.2, Math.log10(1 + ship.lastG) * 0.25))) * pulse, 1 + thr * 0.3);
-      p.material.opacity = lit * 0.22 + 0.35 * Math.min(1, thr);
-    }
-    for (const b of this.bussards) b.material.emissiveIntensity = 1.4 + pulse * 0.8;
-    this.lamp.intensity = ship.lastG > 0 ? 0.8 : 0;
   }
 }
