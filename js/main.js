@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=10';
-import { Sim, V3 } from './physics.js?v=10';
-import { SystemView } from './bodies3d.js?v=10';
-import { ShipView } from './ship3d.js?v=10';
-import { UI } from './ui.js?v=10';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=10';
+import { createStage, makeSky } from './scene.js?v=11';
+import { Sim, V3 } from './physics.js?v=11';
+import { SystemView } from './bodies3d.js?v=11';
+import { ShipView } from './ship3d.js?v=11';
+import { UI } from './ui.js?v=11';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=11';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -28,6 +28,27 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxDistance = 5.5e19;
 
+// ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag
+const chaseQuat = new THREE.Quaternion();
+let chaseDist = 1.15;
+const CHASE_OFF = new THREE.Vector3(0, 0.32, 1).normalize();
+stage.renderer.domElement.addEventListener('wheel', e => {
+  if (focusName !== 'Starship') return;
+  chaseDist = Math.min(40, Math.max(0.5, chaseDist * Math.exp(e.deltaY * 0.001)));
+}, { passive: true });
+
+// boot with the nose pointing at Earth so the chase view opens onto the planet
+{
+  const e = sim.body('Earth');
+  const dir = new THREE.Vector3(
+    e.pos.x - sim.ship.pos.x,
+    e.pos.z - sim.ship.pos.z,
+    -(e.pos.y - sim.ship.pos.y)
+  ).normalize();
+  shipView.quat.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
+  chaseQuat.copy(shipView.quat);
+}
+
 let focusName = 'Earth';
 const ui = new UI(sim, applyFocus);
 
@@ -45,6 +66,7 @@ function focusPos(out) {
 function applyFocus(name, announce = true) {
   focusName = name;
   ui.setFocusSelect(name);
+  if (name === 'Starship') chaseQuat.copy(shipView.quat);   // snap behind, no swing-in
   const r = focusRadiusKm();
   let dir = stage.camera.position.clone().normalize();
   if (name === 'Starship') {
@@ -176,8 +198,18 @@ function frameBody(now) {
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
   system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
 
-  controls.minDistance = Math.max(focusRadiusKm() * 1.25, focusName === 'Starship' ? 0.45 : 1);
-  controls.update();
+  if (focusName === 'Starship') {
+    // chase cam: sit aft-above of the hull, follow orientation with a soft lag
+    controls.enabled = false;
+    chaseQuat.slerp(shipView.quat, 1 - Math.exp(-5 * dtWall));
+    stage.camera.position.copy(CHASE_OFF).multiplyScalar(chaseDist).applyQuaternion(chaseQuat);
+    stage.camera.up.set(0, 1, 0).applyQuaternion(chaseQuat);
+    stage.camera.lookAt(0, 0, 0);
+  } else {
+    if (!controls.enabled) { controls.enabled = true; stage.camera.up.set(0, 1, 0); }
+    controls.minDistance = Math.max(focusRadiusKm() * 1.25, 1);
+    controls.update();
+  }
 
   stage.bloom.strength = ui.state.bloom;
   ui.updateLabels(fPos, stage.camera, focusName);

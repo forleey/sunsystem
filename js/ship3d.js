@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=10';
-import { C_KMS } from './data.js?v=10';
+import { toRender } from './scene.js?v=11';
+import { C_KMS } from './data.js?v=11';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
