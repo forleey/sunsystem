@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=11';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=12';
 
 const DEG = Math.PI / 180;
 
@@ -284,7 +284,8 @@ export class Sim {
         s.braking = false;
         s.throttle = 0;
       } else {
-        aThr = Math.min(s.maxV / 10, rv / dt);    // never overshoot past local rest
+        // braking is 3× more inert than the spool-up: max v back to rest in ~30 s
+        aThr = Math.min(s.maxV / 30, rv / dt);    // never overshoot past local rest
         s.thrustDir.set(-rvx / rv, -rvy / rv, -rvz / rv);
         s.throttle = Math.min(1, rv / Math.max(s.maxV, 1e-9));
       }

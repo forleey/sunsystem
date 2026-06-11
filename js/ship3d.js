@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=11';
-import { C_KMS } from './data.js?v=11';
+import { toRender } from './scene.js?v=12';
+import { C_KMS } from './data.js?v=12';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -101,7 +101,7 @@ export class ShipView {
     const dt = Math.min(dtWall, 0.05);
     // rotational inertia: keys command angular acceleration; releasing lets the
     // ship keep turning while RCS-style damping bleeds the rate back to zero
-    const ACC = 2.2, MAX = 1.5, DAMP = 1.6, av = this.angVel;
+    const ACC = 4.4, MAX = 1.5, DAMP = 3.2, av = this.angVel;   // half the rotational inertia
     const inp = {
       x: (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0),
       y: (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0),

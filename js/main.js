@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=11';
-import { Sim, V3 } from './physics.js?v=11';
-import { SystemView } from './bodies3d.js?v=11';
-import { ShipView } from './ship3d.js?v=11';
-import { UI } from './ui.js?v=11';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=11';
+import { createStage, makeSky } from './scene.js?v=12';
+import { Sim, V3 } from './physics.js?v=12';
+import { SystemView } from './bodies3d.js?v=12';
+import { ShipView } from './ship3d.js?v=12';
+import { UI } from './ui.js?v=12';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=12';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
