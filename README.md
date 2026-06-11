@@ -33,7 +33,7 @@ python3 -m http.server 8643
 | 1–9, 0 | focus Sun … Pluto |
 | drag / wheel | orbit & zoom camera |
 
-Sliders: time warp (1×–10⁹×), gravity G multiplier, planet visual size (1×–500×), ship thrust (0.5–20 g), bloom; toggles for relativistic c-limit, orbit trails, labels.
+Sliders: time warp (1×–10⁹×), gravity G multiplier, planet visual size (1×–500×), ship max speed (0.05–100 ×c, reached in 10 s), bloom; toggles for relativistic c-limit, orbit trails, labels.
 
 ## Files
 

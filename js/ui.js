@@ -1,14 +1,14 @@
 // Sliders, HUD, body labels.
 import * as THREE from 'three';
-import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=8';
-import { toRender } from './scene.js?v=8';
+import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=9';
+import { toRender } from './scene.js?v=9';
 
 const $ = id => document.getElementById(id);
 
 export class UI {
   constructor(sim, onFocus) {
     this.sim = sim;
-    this.state = { warp: 1, sizeMult: 1, shipG: 10, bloom: 1, trails: true, labels: true };
+    this.state = { warp: 1, sizeMult: 1, shipG: 1, bloom: 1, trails: true, labels: true };
     this.onFocus = onFocus;
     this.labelEls = new Map();
     this.tmp = new THREE.Vector3();
@@ -26,10 +26,10 @@ export class UI {
       sim.gMult = parseFloat(e.target.value);
       $('v-g').textContent = sim.gMult.toFixed(2) + '×';
     });
-    $('s-shipg').addEventListener('input', e => {
-      this.state.shipG = parseFloat(e.target.value);
-      $('v-shipg').textContent = this.state.shipG.toFixed(1) + ' g';
-    });
+    // ship max speed in multiples of c (1 G = light speed), log slider 0.05–100
+    bindLog('s-shipg', 'v-shipg',
+      v => (v >= 10 ? Math.round(v) : v >= 1 ? v.toFixed(1) : v.toFixed(2)) + ' G',
+      v => { this.state.shipG = v; });
     $('s-bloom').addEventListener('input', e => {
       this.state.bloom = parseFloat(e.target.value);
       $('v-bloom').textContent = this.state.bloom.toFixed(2);
@@ -68,7 +68,7 @@ export class UI {
 
   resetDefaults() {
     const set = (id, v, evt = 'input') => { $(id).value = v; $(id).dispatchEvent(new Event(evt)); };
-    set('s-warp', 0); set('s-g', 1); set('s-psize', 0); set('s-shipg', 10); set('s-bloom', 1);
+    set('s-warp', 0); set('s-g', 1); set('s-psize', 0); set('s-shipg', 0); set('s-bloom', 1);
     $('c-rel').checked = false; this.sim.relativistic = false;
     this.toast('Realistic defaults restored');
   }

@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=8';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=9';
 
 const DEG = Math.PI / 180;
 
@@ -70,7 +70,8 @@ export class Ship {
     this.u = new V3();            // proper velocity (gamma*v) for relativistic mode
     this.thrustDir = new V3(1, 0, 0);
     this.thrustAcc = 0;           // km/s^2, current commanded
-    this.throttle = 0;            // 0..1, ramps up while thrust is held
+    this.throttle = 0;            // 0..1, fraction of max v reached while burning
+    this.maxV = C_KMS;            // manual-thrust speed limit (slider G × c)
     this.autopilot = null;        // {targetFn, accel, arriveR, label}
     this.lastG = 0;
   }
@@ -336,6 +337,18 @@ export class Sim {
       s.pos.addScaled(s.vel, h);
       calcG((k + 1) / n);
       kick(h / 2);
+    }
+    // manual burns respect the max-v setting (autopilot jumps are not capped)
+    if (aThr > 0 && !s.autopilot && s.maxV > 0) {
+      const vl = s.vel.len();
+      if (vl > s.maxV) {
+        s.vel.scale(s.maxV / vl);
+        if (this.relativistic && s.maxV < C_KMS) {
+          s.u.copy(s.vel).scale(1 / Math.sqrt(1 - (s.maxV / C_KMS) ** 2));
+        } else {
+          s.u.copy(s.vel);
+        }
+      }
     }
   }
 

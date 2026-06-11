@@ -89,8 +89,8 @@
       <input type="range" id="s-g" min="0" max="3" step="0.01" value="1"></div>
     <div class="row"><label>Planet size <b id="v-psize">1× (real)</b></label>
       <input type="range" id="s-psize" min="0" max="2.7" step="0.01" value="0"></div>
-    <div class="row"><label>Ship thrust <b id="v-shipg">10.0 g</b></label>
-      <input type="range" id="s-shipg" min="0.5" max="20" step="0.5" value="10"></div>
+    <div class="row"><label>Max speed (1 G = c) <b id="v-shipg">1.00 G</b></label>
+      <input type="range" id="s-shipg" min="-1.301" max="2" step="0.01" value="0"></div>
     <div class="row"><label>Bloom <b id="v-bloom">1.0</b></label>
       <input type="range" id="s-bloom" min="0" max="2.5" step="0.05" value="1"></div>
     <label class="chk"><input type="checkbox" id="c-rel"> Relativistic limit (c)</label>
@@ -111,7 +111,7 @@
     <tr><td>W / S &nbsp;·&nbsp; &uarr; / &darr;</td><td>pitch</td></tr>
     <tr><td>A / D &nbsp;·&nbsp; &larr; / &rarr;</td><td>yaw</td></tr>
     <tr><td>Q / E</td><td>roll</td></tr>
-    <tr><td>Space (hold)</td><td>thrust — ramps to slider g in 10 s</td></tr>
+    <tr><td>Space (hold)</td><td>thrust — hits max speed (slider) in 10 s</td></tr>
     <tr><td>X</td><td>cut thrust / abort autopilot</td></tr>
     <tr><td>J</td><td>jump: Andromeda @ 100 000 g</td></tr>
     <tr><td>H</td><td>autopilot home to Earth</td></tr>
@@ -145,6 +145,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=8"></script>
+<script type="module" src="./js/main.js?v=9"></script>
 </body>
 </html>

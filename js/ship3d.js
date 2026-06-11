@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=8';
-import { G_ACC } from './data.js?v=8';
+import { toRender } from './scene.js?v=9';
+import { C_KMS } from './data.js?v=9';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -122,14 +122,17 @@ export class ShipView {
     this.fwd.set(0, 0, -1).applyQuaternion(this.quat);
 
     if (!ship.autopilot) {
-      // throttle spools up over ~10 s to the slider g — no instant full burn
+      // slider G = max speed in multiples of c; constant burn reaches it in ~10 s
+      const maxV = shipG * C_KMS;
+      ship.maxV = maxV;
       if (keys.has('Space')) {
-        ship.throttle = Math.min(1, ship.throttle + dt / 10);
+        ship.thrustAcc = maxV / 10;
         fromRender(this.fwd, ship.thrustDir).norm();
+        ship.throttle = Math.min(1, ship.speed() / maxV);   // HUD: how close to max v
       } else {
+        ship.thrustAcc = 0;
         ship.throttle = 0;
       }
-      ship.thrustAcc = ship.throttle * shipG * G_ACC;
     } else {
       // visually align with autopilot thrust vector
       this.angVel.set(0, 0, 0);
@@ -142,9 +145,9 @@ export class ShipView {
     this.tmpV.set(ship.pos.x - focusPos.x, ship.pos.y - focusPos.y, ship.pos.z - focusPos.z);
     toRender(this.tmpV, this.grp.position);
 
-    // engine feedback — visible glow from the first sliver of throttle
-    const thr = Math.min(1, ship.lastG / Math.max(shipG, 1));
-    const lit = ship.autopilot ? 1 : ship.throttle > 0 ? 1 : 0;
+    // engine feedback — full glow whenever the drive is burning
+    const lit = ship.autopilot ? 1 : ship.thrustAcc > 0 ? 1 : 0;
+    const thr = lit;
     const pulse = 0.85 + 0.15 * Math.sin(performance.now() * 0.02);
     for (const p of this.plumes) {
       p.scale.set(1 + thr * 0.3, Math.max(lit * 0.25, thr * (0.9 + Math.min(1.2, Math.log10(1 + ship.lastG) * 0.25))) * pulse, 1 + thr * 0.3);
