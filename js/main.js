@@ -113,10 +113,11 @@ window.addEventListener('keydown', e => {
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());   // no stuck thrust when the tab loses focus
 
-// panel controls steal keyboard focus after a click/drag — give it back to the helm
+// panel controls steal keyboard focus after a click/drag — give it back to the helm.
+// selects only blur on change: blurring on pointerup would close the dropdown mid-pick
 for (const el of document.querySelectorAll('.panel input, .panel select, .panel button')) {
   el.addEventListener('change', () => el.blur());
-  el.addEventListener('pointerup', () => setTimeout(() => el.blur(), 0));
+  if (el.tagName !== 'SELECT') el.addEventListener('pointerup', () => setTimeout(() => el.blur(), 0));
 }
 
 // ---------- HUD helpers ----------
@@ -186,7 +187,6 @@ function frameBody(now) {
 window.__dbg = { stage, sim, system, shipView, sky, applyFocus, tick: t => frameBody(t) };
 console.log('sunsystem boot ok');
 
-applyFocus('Earth', false);
-stage.camera.position.set(0, 2.6e4, 7.2e4);
+applyFocus('Starship', false);
 ui.toast('Sol system loaded — N-body physics live. Press J for the Andromeda jump.', 5200);
 requestAnimationFrame(frame);
