@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=13';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=14';
 
 const DEG = Math.PI / 180;
 
@@ -278,16 +278,17 @@ export class Sim {
     if (!ctrl && aThr === 0 && s.braking) {
       const rvx = s.vel.x - dom.vel.x, rvy = s.vel.y - dom.vel.y, rvz = s.vel.z - dom.vel.z;
       const rv = Math.hypot(rvx, rvy, rvz);
-      if (rv < Math.max(0.5, s.maxV * 1e-3)) {
+      if (rv < Math.max(0.2, s.maxV * 2e-5)) {
         s.vel.copy(dom.vel);
         s.u.copy(s.vel);
         s.braking = false;
         s.throttle = 0;
       } else {
-        // 3× more inert than the spool-up, with an ease-out: full retro while fast,
-        // then deceleration ∝ speed so the ship glides into standstill (~8 s tail)
-        const BRAKE_TAU = 2.0;
-        aThr = Math.min(s.maxV / 30, rv / BRAKE_TAU, rv / dt);   // last term: no overshoot at high warp
+        // full retro while fast, then a √v ease-out: deceleration fades smoothly
+        // and reaches zero together with the speed — no terminal hard stop
+        const RATE = s.maxV / 20, knee = s.maxV * 0.08;
+        const a = rv > knee ? RATE : RATE * Math.sqrt(rv / knee);
+        aThr = Math.min(a, rv / dt);              // never overshoot at high warp
         s.thrustDir.set(-rvx / rv, -rvy / rv, -rvz / rv);
         s.throttle = Math.min(1, rv / Math.max(s.maxV, 1e-9));
       }

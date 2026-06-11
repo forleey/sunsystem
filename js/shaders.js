@@ -36,9 +36,9 @@ float starLayer(vec3 d, float scale, float thr, float glow){
 }
 void main(){
   vec3 d = normalize(vDir);
-  float s1 = starLayer(d,42.0,0.78,150.0)*2.6;
-  float s2 = starLayer(d,95.0,0.70,260.0)*1.5;
-  float s3 = starLayer(d,210.0,0.74,420.0)*0.9;
+  float s1 = starLayer(d,42.0,0.80,520.0)*1.5;
+  float s2 = starLayer(d,95.0,0.72,700.0)*1.1;
+  float s3 = starLayer(d,210.0,0.75,900.0)*0.8;
   vec3 tint = mix(vec3(1.0,0.82,0.65), vec3(0.72,0.82,1.0), hash1(floor(d*137.0)));
   vec3 stars = (s1+s2+s3) * tint;
   float lat = dot(d, uGNorth);
@@ -163,7 +163,7 @@ void main(){
 #endif
 
   vec3 h = normalize(sd+vd);
-  float sp = pow(max(dot(n,h),0.0), 60.0) * spec * 0.9;
+  float sp = pow(max(dot(n,h),0.0), 300.0) * spec * 0.3;   // tight sun glint, no plastic sheen
   vec3 outc = col*day + vec3(1.0,0.95,0.85)*sp*day + emis;
   outc += col*0.012;                       // faint ambient so night side isn't void
   gl_FragColor = vec4(outc, 1.0);
