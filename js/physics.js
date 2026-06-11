@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=9';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=10';
 
 const DEG = Math.PI / 180;
 
@@ -72,6 +72,7 @@ export class Ship {
     this.thrustAcc = 0;           // km/s^2, current commanded
     this.throttle = 0;            // 0..1, fraction of max v reached while burning
     this.maxV = C_KMS;            // manual-thrust speed limit (slider G × c)
+    this.braking = false;         // retro-burn back to local rest after Space release
     this.autopilot = null;        // {targetFn, accel, arriveR, label}
     this.lastG = 0;
   }
@@ -128,6 +129,7 @@ export class Sim {
     s.u.copy(s.vel).scale(1 / Math.sqrt(Math.max(1e-12, 1 - (s.vel.len() / C_KMS) ** 2)));
     s.thrustAcc = 0;
     s.throttle = 0;
+    s.braking = false;
     s.autopilot = null;
   }
 
@@ -258,21 +260,40 @@ export class Sim {
     const s = this.ship;
     const ctrl = this.autopilotControl(dt);
     let aThr = 0;
-    if (ctrl) { s.thrustDir.copy(ctrl.dir); aThr = ctrl.acc; }
+    if (ctrl) { s.thrustDir.copy(ctrl.dir); aThr = ctrl.acc; s.braking = false; }
     else if (s.thrustAcc > 0) aThr = s.thrustAcc;
+
+    // dominant gravity well — frame for braking, on-rails coasting and step sizing
+    let pull = 0, di = 0;
+    for (let i = 0; i < this.bodies.length; i++) {
+      const b = this.bodies[i];
+      const dx = b.pos.x - s.pos.x, dy = b.pos.y - s.pos.y, dz = b.pos.z - s.pos.z;
+      const p = b.m / (dx * dx + dy * dy + dz * dz);
+      if (p > pull) { pull = p; di = i; }
+    }
+    const dom = this.bodies[di];
+
+    // spacebar released: retro-burn at the spool rate (max v / 10 s) until the
+    // ship stands still relative to the local frame — symmetric to acceleration
+    if (!ctrl && aThr === 0 && s.braking) {
+      const rvx = s.vel.x - dom.vel.x, rvy = s.vel.y - dom.vel.y, rvz = s.vel.z - dom.vel.z;
+      const rv = Math.hypot(rvx, rvy, rvz);
+      if (rv < 0.5) {
+        s.vel.copy(dom.vel);
+        s.u.copy(s.vel);
+        s.braking = false;
+        s.throttle = 0;
+      } else {
+        aThr = Math.min(s.maxV / 10, rv / dt);    // never overshoot past local rest
+        s.thrustDir.set(-rvx / rv, -rvy / rv, -rvz / rv);
+        s.throttle = Math.min(1, rv / Math.max(s.maxV, 1e-9));
+      }
+    }
     s.lastG = aThr / G_ACC;
 
     // Coasting and bound to the dominant well → exact Kepler arc relative to it.
     // Immune to time-warp; numeric integration is only needed under thrust.
     if (aThr === 0) {
-      let pull = 0, di = 0;
-      for (let i = 0; i < this.bodies.length; i++) {
-        const b = this.bodies[i];
-        const dx = b.pos.x - s.pos.x, dy = b.pos.y - s.pos.y, dz = b.pos.z - s.pos.z;
-        const p = b.m / (dx * dx + dy * dy + dz * dz);
-        if (p > pull) { pull = p; di = i; }
-      }
-      const dom = this.bodies[di];
       const r0 = s.pos.clone().sub(this.prePos[di]);
       const v0 = s.vel.clone().sub(this.preVel[di]);
       const kp = Sim.keplerPropagate(r0, v0, G0 * this.gMult * dom.m, dt);
@@ -284,16 +305,10 @@ export class Sim {
       }
     }
 
-    // close orbits need a much finer step than the planets do — find the dominant
-    // gravity well and subdivide so dt stays a small fraction of the local period
-    let pull = 0, domD = 1, domM = 1;
-    for (const b of this.bodies) {
-      const dx = b.pos.x - s.pos.x, dy = b.pos.y - s.pos.y, dz = b.pos.z - s.pos.z;
-      const r2 = dx * dx + dy * dy + dz * dz;
-      const p = b.m / r2;
-      if (p > pull) { pull = p; domD = Math.sqrt(r2); domM = b.m; }
-    }
-    const period = 2 * Math.PI * Math.sqrt(domD ** 3 / (G0 * this.gMult * domM));
+    // close orbits need a much finer step than the planets do — subdivide so dt
+    // stays a small fraction of the orbital period around the dominant well
+    const domD = Math.hypot(dom.pos.x - s.pos.x, dom.pos.y - s.pos.y, dom.pos.z - s.pos.z);
+    const period = 2 * Math.PI * Math.sqrt(domD ** 3 / (G0 * this.gMult * dom.m));
     const n = Math.min(96, Math.max(1, Math.ceil(dt / Math.max(period / 120, 15))));
     const h = dt / n;
     const G = G0 * this.gMult, bs = this.bodies;

@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=9';
-import { Sim, V3 } from './physics.js?v=9';
-import { SystemView } from './bodies3d.js?v=9';
-import { ShipView } from './ship3d.js?v=9';
-import { UI } from './ui.js?v=9';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=9';
+import { createStage, makeSky } from './scene.js?v=10';
+import { Sim, V3 } from './physics.js?v=10';
+import { SystemView } from './bodies3d.js?v=10';
+import { ShipView } from './ship3d.js?v=10';
+import { UI } from './ui.js?v=10';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=10';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -105,7 +105,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyH') startHomeJump();
   if (e.code === 'KeyF') applyFocus('Starship');
   if (e.code === 'KeyX') {
-    sim.ship.autopilot = null; sim.ship.thrustAcc = 0; sim.ship.throttle = 0;
+    sim.ship.autopilot = null; sim.ship.thrustAcc = 0; sim.ship.throttle = 0; sim.ship.braking = false;
     ui.setWarp(1); ui.toast('Thrust cut — coasting on inertia');
   }
   if (DIGITS[e.code]) applyFocus(DIGITS[e.code]);

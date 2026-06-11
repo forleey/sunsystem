@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=9';
-import { C_KMS } from './data.js?v=9';
+import { toRender } from './scene.js?v=10';
+import { C_KMS } from './data.js?v=10';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -126,12 +126,14 @@ export class ShipView {
       const maxV = shipG * C_KMS;
       ship.maxV = maxV;
       if (keys.has('Space')) {
+        ship.braking = false;
         ship.thrustAcc = maxV / 10;
         fromRender(this.fwd, ship.thrustDir).norm();
         ship.throttle = Math.min(1, ship.speed() / maxV);   // HUD: how close to max v
       } else {
+        if (ship.thrustAcc > 0) ship.braking = true;  // just released — retro-burn to local rest
         ship.thrustAcc = 0;
-        ship.throttle = 0;
+        if (!ship.braking) ship.throttle = 0;         // while braking, physics owns the readout
       }
     } else {
       // visually align with autopilot thrust vector
@@ -145,8 +147,8 @@ export class ShipView {
     this.tmpV.set(ship.pos.x - focusPos.x, ship.pos.y - focusPos.y, ship.pos.z - focusPos.z);
     toRender(this.tmpV, this.grp.position);
 
-    // engine feedback — full glow whenever the drive is burning
-    const lit = ship.autopilot ? 1 : ship.thrustAcc > 0 ? 1 : 0;
+    // engine feedback — full glow whenever the drive is burning (incl. retro-brake)
+    const lit = ship.autopilot || ship.thrustAcc > 0 || ship.braking ? 1 : 0;
     const thr = lit;
     const pulse = 0.85 + 0.15 * Math.sin(performance.now() * 0.02);
     for (const p of this.plumes) {
