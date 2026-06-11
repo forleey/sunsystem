@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=7';
-import { Sim, V3 } from './physics.js?v=7';
-import { SystemView } from './bodies3d.js?v=7';
-import { ShipView } from './ship3d.js?v=7';
-import { UI } from './ui.js?v=7';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=7';
+import { createStage, makeSky } from './scene.js?v=8';
+import { Sim, V3 } from './physics.js?v=8';
+import { SystemView } from './bodies3d.js?v=8';
+import { ShipView } from './ship3d.js?v=8';
+import { UI } from './ui.js?v=8';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=8';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -173,7 +173,7 @@ function frameBody(now) {
   sim.step(dtWall * ui.state.warp);
 
   focusPos(fPos);
-  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG, dtWall * ui.state.warp);
+  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
   system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
 
   controls.minDistance = Math.max(focusRadiusKm() * 1.25, focusName === 'Starship' ? 0.45 : 1);
