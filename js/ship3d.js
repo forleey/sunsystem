@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=16';
-import { C_KMS } from './data.js?v=16';
+import { toRender } from './scene.js?v=17';
+import { C_KMS } from './data.js?v=17';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -83,14 +83,16 @@ export class ShipView {
     const dt = Math.min(dtWall, 0.05);
     // rotational inertia: keys command angular acceleration; releasing lets the
     // ship keep turning while RCS-style damping bleeds the rate back to zero
-    const ACC = 4.4, MAX = 1.5, DAMP = 3.2, av = this.angVel;   // half the rotational inertia
+    const ACC = 4.4, MAX = 1.5, DAMP = 3.2, av = this.angVel;
+    const SPD = { x: 0.5, y: 0.5, z: 1 };   // pitch/yaw at half rate, roll unchanged
     const inp = {
       x: (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0),
       y: (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0) - (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0),
       z: (keys.has('KeyQ') ? 1 : 0) - (keys.has('KeyE') ? 1 : 0),
     };
     for (const a of ['x', 'y', 'z']) {
-      if (inp[a]) av[a] = Math.max(-MAX, Math.min(MAX, av[a] + inp[a] * ACC * dt));
+      const lim = MAX * SPD[a];
+      if (inp[a]) av[a] = Math.max(-lim, Math.min(lim, av[a] + inp[a] * ACC * SPD[a] * dt));
       else {
         av[a] *= Math.exp(-DAMP * dt);
         if (Math.abs(av[a]) < 1e-4) av[a] = 0;
