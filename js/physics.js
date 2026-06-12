@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=17';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=18';
 
 const DEG = Math.PI / 180;
 
@@ -120,17 +120,31 @@ export class Sim {
 
   body(name) { return this.bodies.find(b => b.name === name); }
 
-  resetShip() {
-    const e = this.body('Earth'), s = this.ship;
-    const R = 20000;
-    const v = Math.sqrt(G0 * this.gMult * e.m / R);
-    s.pos.copy(e.pos).add(new V3(R, 0, 0));
-    s.vel.copy(e.vel).add(new V3(0, v, 0));
+  // beam the ship into a circular orbit around a body (R defaults to 3 radii),
+  // parked on the sun-facing side so the day side fills the view
+  beamShipTo(name, R) {
+    const b = this.body(name), s = this.ship;
+    if (!b) return false;
+    R = R || Math.max(b.r * 3, b.r + 2000);
+    const v = Math.sqrt(G0 * this.gMult * b.m / R);
+    const sun = this.bodies[0];
+    let rx = sun.pos.x - b.pos.x, ry = sun.pos.y - b.pos.y, rz = sun.pos.z - b.pos.z;
+    const rl = Math.hypot(rx, ry, rz);
+    if (rl < 1) { rx = 1; ry = 0; rz = 0; } else { rx /= rl; ry /= rl; rz /= rl; }
+    const tl = Math.hypot(rx, ry) || 1;
+    const tx = -ry / tl, ty = rx / tl;          // in-plane tangential for a circular orbit
+    s.pos.set(b.pos.x + rx * R, b.pos.y + ry * R, b.pos.z + rz * R);
+    s.vel.set(b.vel.x + tx * v, b.vel.y + ty * v, b.vel.z);
     s.u.copy(s.vel).scale(1 / Math.sqrt(Math.max(1e-12, 1 - (s.vel.len() / C_KMS) ** 2)));
     s.thrustAcc = 0;
     s.throttle = 0;
     s.braking = false;
     s.autopilot = null;
+    return true;
+  }
+
+  resetShip() {
+    this.beamShipTo('Earth', 20000);
   }
 
   computeAcc() {

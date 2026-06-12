@@ -1,11 +1,11 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=17';
-import { Sim, V3 } from './physics.js?v=17';
-import { SystemView } from './bodies3d.js?v=17';
-import { ShipView } from './ship3d.js?v=17';
-import { UI } from './ui.js?v=17';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=17';
+import { createStage, makeSky } from './scene.js?v=18';
+import { Sim, V3 } from './physics.js?v=18';
+import { SystemView } from './bodies3d.js?v=18';
+import { ShipView } from './ship3d.js?v=18';
+import { UI } from './ui.js?v=18';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=18';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -28,26 +28,37 @@ controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxDistance = 5.5e19;
 
-// ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag
+// ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag.
+// wheel sets distance, vertical drag sets camera height (elevation angle)
 const chaseQuat = new THREE.Quaternion();
 let chaseDist = 1.15;
-const CHASE_OFF = new THREE.Vector3(0, 0.32, 1).normalize();
+let chaseEl = Math.atan2(0.32, 1);
 stage.renderer.domElement.addEventListener('wheel', e => {
   if (focusName !== 'Starship') return;
   chaseDist = Math.min(40, Math.max(0.5, chaseDist * Math.exp(e.deltaY * 0.001)));
 }, { passive: true });
+let chaseDragY = null;
+stage.renderer.domElement.addEventListener('pointerdown', e => {
+  if (focusName === 'Starship') chaseDragY = e.clientY;
+});
+window.addEventListener('pointermove', e => {
+  if (chaseDragY === null || focusName !== 'Starship') return;
+  chaseEl = Math.min(1.35, Math.max(-0.45, chaseEl + (e.clientY - chaseDragY) * 0.004));
+  chaseDragY = e.clientY;
+});
+window.addEventListener('pointerup', () => { chaseDragY = null; });
 
-// boot with the nose pointing at Earth so the chase view opens onto the planet
-{
-  const e = sim.body('Earth');
+// point the ship's nose at a body (used at boot and after beaming)
+function aimShipAt(body) {
   const dir = new THREE.Vector3(
-    e.pos.x - sim.ship.pos.x,
-    e.pos.z - sim.ship.pos.z,
-    -(e.pos.y - sim.ship.pos.y)
+    body.pos.x - sim.ship.pos.x,
+    body.pos.z - sim.ship.pos.z,
+    -(body.pos.y - sim.ship.pos.y)
   ).normalize();
   shipView.quat.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
   chaseQuat.copy(shipView.quat);
 }
+aimShipAt(sim.body('Earth'));   // boot: chase view opens onto the planet
 
 let focusName = 'Earth';
 const ui = new UI(sim, applyFocus);
@@ -130,7 +141,17 @@ window.addEventListener('keydown', e => {
     sim.ship.autopilot = null; sim.ship.thrustAcc = 0; sim.ship.throttle = 0; sim.ship.braking = false;
     ui.setWarp(1); ui.toast('Thrust cut — coasting on inertia');
   }
-  if (DIGITS[e.code]) applyFocus(DIGITS[e.code]);
+  if (DIGITS[e.code]) {
+    if (e.shiftKey) {                       // beam the ship into orbit there
+      const name = DIGITS[e.code];
+      sim.beamShipTo(name);
+      aimShipAt(sim.body(name));
+      applyFocus('Starship', false);
+      ui.toast('Beamed into ' + name + ' orbit');
+    } else {
+      applyFocus(DIGITS[e.code]);
+    }
+  }
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());   // no stuck thrust when the tab loses focus
@@ -202,7 +223,7 @@ function frameBody(now) {
     // chase cam: sit aft-above of the hull, follow orientation with a soft lag
     controls.enabled = false;
     chaseQuat.slerp(shipView.quat, 1 - Math.exp(-5 * dtWall));
-    stage.camera.position.copy(CHASE_OFF).multiplyScalar(chaseDist).applyQuaternion(chaseQuat);
+    stage.camera.position.set(0, Math.sin(chaseEl), Math.cos(chaseEl)).multiplyScalar(chaseDist).applyQuaternion(chaseQuat);
     stage.camera.up.set(0, 1, 0).applyQuaternion(chaseQuat);
     stage.camera.lookAt(0, 0, 0);
   } else {
