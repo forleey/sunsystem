@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=21';
-import { C_KMS } from './data.js?v=21';
+import { toRender } from './scene.js?v=22';
+import { C_KMS } from './data.js?v=22';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -69,29 +69,15 @@ export class ShipView {
         color: 0x3ec8ff, emissive: 0x2fb8ff, emissiveIntensity: 0.9,
       }));
       grille.position.set(sx * (0.031 - 0.0052), 0.012, 0.062);
-      g.add(grille);
+      g.add(grille); this.grilles.push(grille);
       const pylon = new THREE.Mesh(new THREE.BoxGeometry(0.0035, 0.045, 0.018), DARK);
       pylon.position.set(sx * 0.0165, -0.006, 0.055);
       pylon.rotation.z = sx * 0.6;
       g.add(pylon);
     }
-    // nacelle exhaust plumes — intensity driven by throttle in update()
-    this.plumes = [];
-    for (const sx of [-1, 1]) {
-      const plume = new THREE.Mesh(
-        new THREE.ConeGeometry(0.0028, 0.05, 16, 1, true),
-        new THREE.MeshBasicMaterial({
-          color: 0x46a6ff, transparent: true, opacity: 0,
-          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
-        })
-      );
-      plume.rotation.x = -Math.PI / 2;
-      plume.position.set(sx * 0.031, 0.012, 0.112);
-      plume.scale.set(1, 0.01, 1);
-      g.add(plume); this.plumes.push(plume);
-    }
-    const lamp = new THREE.PointLight(0x88bbff, 0, 0.5, 2);
-    lamp.position.set(0, 0.02, 0.1);
+    // soft engine halo light — brightens with throttle, no protruding jets
+    const lamp = new THREE.PointLight(0x88bbff, 0, 0.6, 2);
+    lamp.position.set(0, 0.02, 0.09);
     g.add(lamp); this.lamp = lamp;
   }
 
@@ -149,14 +135,11 @@ export class ShipView {
     this.tmpV.set(ship.pos.x - focusPos.x, ship.pos.y - focusPos.y, ship.pos.z - focusPos.z);
     toRender(this.tmpV, this.grp.position);
 
-    // engine glow — subtle, scales with throttle (forward burn, braking, autopilot)
+    // engine glow — nacelle grilles brighten with throttle + a soft halo light
     const burning = ship.thrustAcc > 0 || ship.braking || ship.autopilot;
     const lvl = burning ? Math.max(0.15, ship.autopilot ? 1 : ship.throttle) : 0;
     const pulse = 0.9 + 0.1 * Math.sin(performance.now() * 0.02);
-    for (const p of this.plumes) {
-      p.scale.set(1, Math.max(0.01, lvl * 1.1) * pulse, 1);   // grow the tail, not the girth
-      p.material.opacity = lvl * 0.28 * pulse;
-    }
-    this.lamp.intensity = lvl * 0.35;
+    for (const gr of this.grilles) gr.material.emissiveIntensity = (0.9 + lvl * 3.5) * pulse;
+    this.lamp.intensity = lvl * 0.45;
   }
 }
