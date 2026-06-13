@@ -1,5 +1,18 @@
 // GLSL chunks. All meshes are positioned camera-relative (floating origin), so
 // world-space here means "render space": km, focus object at origin.
+
+// three only auto-injects the logarithmic depth buffer into built-in materials;
+// custom shaders must carry the chunks themselves or their projective depth
+// (useless at near 1e-3 / far 2e20) z-fights everything, flickering on planets
+export function logDepth(vertexShader, fragmentShader) {
+  return {
+    vertexShader: '#include <common>\n#include <logdepthbuf_pars_vertex>\n'
+      + vertexShader.replace(/\}\s*$/, '\n#include <logdepthbuf_vertex>\n}'),
+    fragmentShader: '#include <common>\n#include <logdepthbuf_pars_fragment>\n'
+      + fragmentShader.replace(/\}\s*$/, '\n#include <logdepthbuf_fragment>\n}'),
+  };
+}
+
 export const NOISE = /* glsl */`
 vec3 hash3(vec3 p){ p=vec3(dot(p,vec3(127.1,311.7,74.7)),dot(p,vec3(269.5,183.3,246.1)),dot(p,vec3(113.5,271.9,124.6)));
   return fract(sin(p)*43758.5453123); }

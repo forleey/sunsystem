@@ -1,11 +1,11 @@
 // Meshes for sun, planets, trails, Andromeda. Positions set each frame relative to focus.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=18';
-import { ANDROMEDA } from './data.js?v=18';
+import { toRender } from './scene.js?v=21';
+import { ANDROMEDA } from './data.js?v=21';
 import {
   SUN_V, SUN_F, CORONA_V, CORONA_F, PLANET_V, PLANET_F, PLANET_DEFS_PRE,
-  ATMO_V, ATMO_F, RING_V, RING_F, GALAXY_V, GALAXY_F,
-} from './shaders.js?v=18';
+  ATMO_V, ATMO_F, RING_V, RING_F, GALAXY_V, GALAXY_F, logDepth,
+} from './shaders.js?v=21';
 
 const TYPE_DEF = { rock: 'TYPE_ROCK', gas: 'TYPE_GAS', ice: 'TYPE_ICE', earth: 'TYPE_EARTH', venus: 'TYPE_VENUS', moon: 'TYPE_MOON' };
 
@@ -33,12 +33,12 @@ export class SystemView {
     const sun = sim.bodies[0];
     const sunGrp = new THREE.Group();
     this.sunMat = new THREE.ShaderMaterial({
-      vertexShader: SUN_V, fragmentShader: SUN_F, uniforms: { uTime: { value: 0 } },
+      ...logDepth(SUN_V, SUN_F), uniforms: { uTime: { value: 0 } },
     });
     const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(sun.r, 64, 48), this.sunMat);
     sunGrp.add(sunMesh);
     this.coronaMat = new THREE.ShaderMaterial({
-      vertexShader: CORONA_V, fragmentShader: CORONA_F, uniforms: { uTime: { value: 0 } },
+      ...logDepth(CORONA_V, CORONA_F), uniforms: { uTime: { value: 0 } },
       transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     });
     const corona = new THREE.Mesh(new THREE.PlaneGeometry(sun.r * 5.6, sun.r * 5.6), this.coronaMat);
@@ -72,7 +72,7 @@ export class SystemView {
       uniforms.uDayMap = { value: loadTex('2k_moon.jpg') };
     }
     const mat = new THREE.ShaderMaterial({
-      vertexShader: PLANET_V, fragmentShader: PLANET_DEFS_PRE + PLANET_F,
+      ...logDepth(PLANET_V, PLANET_DEFS_PRE + PLANET_F),
       uniforms, defines: { [TYPE_DEF[d.type]]: 1 },
     });
     const mesh = new THREE.Mesh(new THREE.SphereGeometry(b.r, 56, 40), mat);
@@ -84,7 +84,7 @@ export class SystemView {
     const a = ATMO[b.name];
     if (a) {
       const am = new THREE.ShaderMaterial({
-        vertexShader: ATMO_V, fragmentShader: ATMO_F,
+        ...logDepth(ATMO_V, ATMO_F),
         uniforms: {
           uColor: { value: new THREE.Color(a[0]) }, uSunDir: { value: uniforms.uSunDir.value },
           uCamPos: { value: new THREE.Vector3() },
@@ -97,7 +97,7 @@ export class SystemView {
     if (d.rings) {
       const [ri, ro] = d.rings;
       const rm = new THREE.ShaderMaterial({
-        vertexShader: RING_V, fragmentShader: RING_F,
+        ...logDepth(RING_V, RING_F),
         uniforms: { uSunDir: { value: uniforms.uSunDir.value }, uInner: { value: ri }, uOuter: { value: ro } },
         transparent: true, depthWrite: false, side: THREE.DoubleSide,
       });
@@ -141,7 +141,7 @@ export class SystemView {
     );
     this.andromedaPos = dir.clone().multiplyScalar(A.dist);   // render-frame ecliptic-mapped, heliocentric
     const mat = new THREE.ShaderMaterial({
-      vertexShader: GALAXY_V, fragmentShader: GALAXY_F,
+      ...logDepth(GALAXY_V, GALAXY_F),
       transparent: true, depthWrite: false, side: THREE.DoubleSide,
     });
     const disk = new THREE.Mesh(new THREE.PlaneGeometry(A.radius * 2, A.radius * 2), mat);

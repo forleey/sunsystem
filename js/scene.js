@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SKY_V, SKY_F } from './shaders.js?v=18';
+import { SKY_V, SKY_F, logDepth } from './shaders.js?v=21';
 
 export function toRender(v, out) { return out.set(v.x, v.z, -v.y); }
 
@@ -56,7 +56,7 @@ export function createStage(container) {
 export function makeSky(scene) {
   const DEG = Math.PI / 180;
   const mat = new THREE.ShaderMaterial({
-    vertexShader: SKY_V, fragmentShader: SKY_F,
+    ...logDepth(SKY_V, SKY_F),
     uniforms: {
       uGNorth: { value: eclDir(180.02 * DEG, 29.81 * DEG) },
       uGCenter: { value: eclDir(266.84 * DEG, -5.54 * DEG) },

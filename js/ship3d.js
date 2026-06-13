@@ -1,7 +1,7 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=18';
-import { C_KMS } from './data.js?v=18';
+import { toRender } from './scene.js?v=21';
+import { C_KMS } from './data.js?v=21';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -75,6 +75,24 @@ export class ShipView {
       pylon.rotation.z = sx * 0.6;
       g.add(pylon);
     }
+    // nacelle exhaust plumes — intensity driven by throttle in update()
+    this.plumes = [];
+    for (const sx of [-1, 1]) {
+      const plume = new THREE.Mesh(
+        new THREE.ConeGeometry(0.0028, 0.05, 16, 1, true),
+        new THREE.MeshBasicMaterial({
+          color: 0x46a6ff, transparent: true, opacity: 0,
+          blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide,
+        })
+      );
+      plume.rotation.x = -Math.PI / 2;
+      plume.position.set(sx * 0.031, 0.012, 0.112);
+      plume.scale.set(1, 0.01, 1);
+      g.add(plume); this.plumes.push(plume);
+    }
+    const lamp = new THREE.PointLight(0x88bbff, 0, 0.5, 2);
+    lamp.position.set(0, 0.02, 0.1);
+    g.add(lamp); this.lamp = lamp;
   }
 
   // keys: Set of pressed key codes; shipG: slider value in g
@@ -111,9 +129,9 @@ export class ShipView {
       ship.maxV = maxV;
       if (keys.has('Space')) {
         ship.braking = false;
-        ship.thrustAcc = maxV / 10;
+        ship.thrustAcc = maxV / 5;                          // full throttle in 5 s
         fromRender(this.fwd, ship.thrustDir).norm();
-        ship.throttle = Math.min(1, ship.speed() / maxV);   // HUD: how close to max v
+        ship.throttle = Math.min(1, ship.speed() / maxV);   // 0→1 as max v is reached
       } else {
         if (ship.thrustAcc > 0) ship.braking = true;  // just released — retro-burn to local rest
         ship.thrustAcc = 0;
@@ -131,5 +149,14 @@ export class ShipView {
     this.tmpV.set(ship.pos.x - focusPos.x, ship.pos.y - focusPos.y, ship.pos.z - focusPos.z);
     toRender(this.tmpV, this.grp.position);
 
+    // engine glow — subtle, scales with throttle (forward burn, braking, autopilot)
+    const burning = ship.thrustAcc > 0 || ship.braking || ship.autopilot;
+    const lvl = burning ? Math.max(0.15, ship.autopilot ? 1 : ship.throttle) : 0;
+    const pulse = 0.9 + 0.1 * Math.sin(performance.now() * 0.02);
+    for (const p of this.plumes) {
+      p.scale.set(1, Math.max(0.01, lvl * 1.1) * pulse, 1);   // grow the tail, not the girth
+      p.material.opacity = lvl * 0.28 * pulse;
+    }
+    this.lamp.intensity = lvl * 0.35;
   }
 }
