@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=27';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=28';
 
 const DEG = Math.PI / 180;
 
@@ -312,7 +312,7 @@ export class Sim {
       } else {
         // full retro while fast, then a √v ease-out: deceleration fades smoothly
         // and reaches zero together with the speed — no terminal hard stop
-        const RATE = s.maxV / 5.2, knee = s.maxV * 0.08;   // ~5 s from max v to rest (30% more inertia)
+        const RATE = s.maxV / 10.5, knee = s.maxV * 0.08;  // ~10 s from max v to rest
         const a = rv > knee ? RATE : RATE * Math.sqrt(rv / knee);
         aThr = Math.min(a, rv / dt);              // never overshoot at high warp
         s.thrustDir.set(-rvx / rv, -rvy / rv, -rvz / rv);

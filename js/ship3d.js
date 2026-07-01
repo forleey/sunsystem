@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=27';
-import { C_KMS } from './data.js?v=27';
-import { loadModel } from './models.js?v=27';
+import { toRender } from './scene.js?v=28';
+import { C_KMS } from './data.js?v=28';
+import { loadModel } from './models.js?v=28';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -142,7 +142,7 @@ export class ShipView {
       ship.maxV = maxV;
       if (keys.has('Space')) {
         ship.braking = false;
-        ship.thrustAcc = maxV / 5;                          // full throttle in 5 s
+        ship.thrustAcc = maxV / 10;                         // full throttle in 10 s
         fromRender(this.fwd, ship.thrustDir).norm();
         ship.throttle = Math.min(1, ship.speed() / maxV);   // 0→1 as max v is reached
       } else {
