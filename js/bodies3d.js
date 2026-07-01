@@ -1,11 +1,11 @@
 // Meshes for sun, planets, trails, Andromeda. Positions set each frame relative to focus.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=25';
-import { ANDROMEDA } from './data.js?v=25';
+import { toRender } from './scene.js?v=26';
+import { ANDROMEDA } from './data.js?v=26';
 import {
   SUN_V, SUN_F, CORONA_V, CORONA_F, PLANET_V, PLANET_F, PLANET_DEFS_PRE,
   ATMO_V, ATMO_F, RING_V, RING_F, GALAXY_V, GALAXY_F, logDepth,
-} from './shaders.js?v=25';
+} from './shaders.js?v=26';
 
 const TYPE_DEF = { rock: 'TYPE_ROCK', gas: 'TYPE_GAS', ice: 'TYPE_ICE', earth: 'TYPE_EARTH', venus: 'TYPE_VENUS', moon: 'TYPE_MOON' };
 
@@ -13,8 +13,21 @@ const texLoader = new THREE.TextureLoader();
 function loadTex(file) {
   const t = texLoader.load('./textures/' + file);
   t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
+  t.anisotropy = 16;
   return t;
+}
+
+// progressive upgrade: boot with the bundled 2K map, swap in the 8K version
+// from R2 once it arrives (R2 CORS is open; TextureLoader defaults to anonymous)
+const TEX_BASE = 'https://pub-71534651969246d597a0c1bf543eff8c.r2.dev/textures/';
+function upgradeTex(uniform, file) {
+  texLoader.load(TEX_BASE + file, t => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.anisotropy = 16;
+    const old = uniform.value;
+    uniform.value = t;
+    if (old) setTimeout(() => old.dispose(), 2000);
+  }, undefined, () => {});   // keep 2K on failure
 }
 const ATMO = {
   Earth: [0x4d9aff, 1.025], Venus: [0xe8c79a, 1.03], Mars: [0xd88a5a, 1.02],
@@ -68,6 +81,8 @@ export class SystemView {
       uniforms.uDayMap = { value: loadTex('2k_earth_daymap.jpg') };
       uniforms.uNightMap = { value: loadTex('2k_earth_nightmap.jpg') };
       uniforms.uCloudMap = { value: loadTex('2k_earth_clouds.jpg') };
+      upgradeTex(uniforms.uDayMap, '8k_earth_daymap.jpg');
+      upgradeTex(uniforms.uCloudMap, '8k_earth_clouds.jpg');
     } else if (b.name === 'Moon') {
       uniforms.uDayMap = { value: loadTex('2k_moon.jpg') };
     }

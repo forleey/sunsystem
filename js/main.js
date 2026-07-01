@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=25';
-import { Sim, V3 } from './physics.js?v=25';
-import { SystemView } from './bodies3d.js?v=25';
-import { ShipView } from './ship3d.js?v=25';
-import { UI } from './ui.js?v=25';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=25';
-import { Fleet } from './fleet.js?v=25';
-import { Music, renderTest } from './music.js?v=25';
-import { initEnvironment } from './models.js?v=25';
+import { createStage, makeSky } from './scene.js?v=26';
+import { Sim, V3 } from './physics.js?v=26';
+import { SystemView } from './bodies3d.js?v=26';
+import { ShipView } from './ship3d.js?v=26';
+import { UI } from './ui.js?v=26';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=26';
+import { Fleet } from './fleet.js?v=26';
+import { Music, renderTest } from './music.js?v=26';
+import { initEnvironment } from './models.js?v=26';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -42,16 +42,31 @@ stage.renderer.domElement.addEventListener('wheel', e => {
   if (focusName !== 'Starship') return;
   chaseDist = Math.min(40, Math.max(0.5, chaseDist * Math.exp(e.deltaY * 0.001)));
 }, { passive: true });
+// ship view mouse: hold LMB to steer (deltas feed the same angVel the keys
+// use, so rotational inertia is preserved); RMB drag sets camera height
 let chaseDragY = null;
+let steerLast = null;
+stage.renderer.domElement.addEventListener('contextmenu', e => {
+  if (focusName === 'Starship') e.preventDefault();
+});
 stage.renderer.domElement.addEventListener('pointerdown', e => {
-  if (focusName === 'Starship') chaseDragY = e.clientY;
+  if (focusName !== 'Starship') return;
+  if (e.button === 2) chaseDragY = e.clientY;
+  else if (e.button === 0) steerLast = { x: e.clientX, y: e.clientY };
 });
 window.addEventListener('pointermove', e => {
-  if (chaseDragY === null || focusName !== 'Starship') return;
-  chaseEl = Math.min(1.35, Math.max(-0.45, chaseEl + (e.clientY - chaseDragY) * 0.004));
-  chaseDragY = e.clientY;
+  if (focusName !== 'Starship') return;
+  if (steerLast) {
+    const K = 0.004, LIM = 0.75, av = shipView.angVel;   // LIM = MAX*SPD from ship3d
+    av.y = Math.max(-LIM, Math.min(LIM, av.y - (e.clientX - steerLast.x) * K));
+    av.x = Math.max(-LIM, Math.min(LIM, av.x - (e.clientY - steerLast.y) * K));
+    steerLast = { x: e.clientX, y: e.clientY };
+  } else if (chaseDragY !== null) {
+    chaseEl = Math.min(1.35, Math.max(-0.45, chaseEl + (e.clientY - chaseDragY) * 0.004));
+    chaseDragY = e.clientY;
+  }
 });
-window.addEventListener('pointerup', () => { chaseDragY = null; });
+window.addEventListener('pointerup', () => { chaseDragY = null; steerLast = null; });
 
 // point the ship's nose at a body (used at boot and after beaming)
 function aimShipAt(body) {

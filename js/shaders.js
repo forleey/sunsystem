@@ -147,7 +147,7 @@ void main(){
 #ifdef TYPE_ICE
   float m = fbm(p*2.4 + vec3(0.0, uTime*0.0008, 0.0));
   col = mix(uC2c(), uC1c(), smoothstep(0.3,0.8,m));
-  col = mix(col, uC3c(), pow(fbm(p*5.0),3.0)*0.8);
+  col = mix(col, uC3c(), pow(max(fbm(p*5.0),0.0),3.0)*0.8);
 #endif
 #ifdef TYPE_ROCK
   float m = fbm(p*3.2);
@@ -167,15 +167,27 @@ void main(){
 #ifdef TYPE_EARTH
   vec3 albedo = texture2D(uDayMap, vUv).rgb;
   float cl = texture2D(uCloudMap, vec2(vUv.x + uTime*8.0e-7, vUv.y)).r;
-  col = mix(albedo, vec3(1.0), cl*0.9);
   float ocean = smoothstep(0.03, 0.12, albedo.b - albedo.r);   // water reads blue in the day map
+  // near-flyby detail: high-frequency fbm breaks up texture blocks; fades out
+  // beyond ~3 Earth radii so the far view stays untouched (Earth r = 6371 km)
+  float nearF = 1.0 - smoothstep(3200.0, 19000.0, length(uCamPos - vWp));
+  if (nearF > 0.001) {
+    float hf = fbm(normalize(vP)*230.0 + albedo.g*4.0);
+    float hf2 = fbm(normalize(vP)*57.0);
+    albedo *= 1.0 + (hf - 0.5)*(0.30 - 0.18*ocean)*nearF + (hf2 - 0.5)*0.14*nearF;
+    cl = clamp(cl * (1.0 + (hf2 - 0.5)*0.55*nearF) + (hf - 0.5)*0.10*nearF*cl, 0.0, 1.0);
+  }
+  col = mix(albedo, vec3(1.0), cl*0.9);
   spec = ocean * (1.0 - cl);
   float night = 1.0 - smoothstep(-0.2, 0.05, ndl);
   vec3 lights = texture2D(uNightMap, vUv).rgb;
   emis = lights * night * (1.0 - cl*0.8) * 1.2;
 #endif
 
-  vec3 h = normalize(sd+vd);
+  // sd+vd -> 0 when looking sunward through the limb; normalize(0) is NaN
+  vec3 hv = sd + vd;
+  float hl = max(length(hv), 1.0e-5);
+  vec3 h = hv / hl;
   float sp = pow(max(dot(n,h),0.0), 300.0) * spec * 0.3;   // tight sun glint, no plastic sheen
   vec3 outc = col*day + vec3(1.0,0.95,0.85)*sp*day + emis;
   outc += col*0.012;                       // faint ambient so night side isn't void
@@ -202,7 +214,9 @@ uniform vec3 uColor,uSunDir,uCamPos;
 void main(){
   vec3 n = normalize(vN);
   vec3 vd = normalize(uCamPos - vWp);
-  float fres = pow(1.0 - abs(dot(n,vd)), 3.2);
+  // fast-math lets |dot| creep past 1 -> negative pow base -> NaN; bloom's
+  // downsample then smears one NaN texel into a big black square. Clamp.
+  float fres = pow(max(1.0 - abs(dot(n,vd)), 0.0), 3.2);
   float lit = clamp(dot(n, normalize(uSunDir))*1.4+0.35, 0.0, 1.0);
   gl_FragColor = vec4(uColor * fres * lit * 1.6, fres*lit);
 }
