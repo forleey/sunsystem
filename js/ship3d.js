@@ -1,7 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
+// An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=24';
-import { C_KMS } from './data.js?v=24';
+import { toRender } from './scene.js?v=25';
+import { C_KMS } from './data.js?v=25';
+import { loadModel } from './models.js?v=25';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -28,7 +30,10 @@ export class ShipView {
   }
 
   buildMesh() {
-    const g = this.grp;
+    const g = new THREE.Group();          // procedural fallback, replaced by GLB
+    this.grp.add(g);
+    this.fallback = g;
+    this._loadGLB();
     // saucer
     const saucer = new THREE.Mesh(new THREE.SphereGeometry(0.0635, 48, 24), HULL);
     saucer.scale.set(1, 0.17, 1);
@@ -78,7 +83,29 @@ export class ShipView {
     // soft engine halo light — brightens with throttle, no protruding jets
     const lamp = new THREE.PointLight(0x88bbff, 0, 0.6, 2);
     lamp.position.set(0, 0.02, 0.09);
-    g.add(lamp); this.lamp = lamp;
+    this.grp.add(lamp); this.lamp = lamp;   // on grp: survives the GLB swap
+  }
+
+  // swap in the hero GLB; rebuild engine grilles at its stern so the
+  // throttle-glow loop in update() keeps working unchanged
+  _loadGLB() {
+    loadModel('player.glb', { lengthKm: 0.19, yaw: Math.PI, blinkers: 0 }).then(m => {
+      this.grp.remove(this.fallback);
+      this.grp.add(m);
+      // additive glow discs sitting in the twin exhaust ports
+      const grilles = [];
+      for (const sx of [-1, 1]) {
+        const gr = new THREE.Mesh(new THREE.CircleGeometry(0.0065, 20), new THREE.MeshStandardMaterial({
+          color: 0x000000, emissive: 0x2fb8ff, emissiveIntensity: 0.9,
+          transparent: true, opacity: 0.95, depthWrite: false,
+          blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
+        }));
+        gr.position.set(sx * 0.0125, 0.001, 0.0915);
+        m.add(gr); grilles.push(gr);
+      }
+      this.grilles = grilles;
+      this.lamp.position.set(0, 0.0, 0.1);
+    }).catch(() => {});   // primitives stay on failure
   }
 
   // keys: Set of pressed key codes; shipG: slider value in g

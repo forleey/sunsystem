@@ -53,3 +53,20 @@ Known simplification: the Milky Way skybox stays fixed during the intergalactic 
 ## Credits
 
 Earth and Moon texture maps (`textures/`) by [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), based on NASA imagery. All other surfaces are procedural GLSL.
+
+## 3D model credits
+
+Ship and station models are open-source assets, optimized with gltf-transform (meshopt + WebP) and served from Cloudflare R2:
+
+| In-sim | Asset | Author / Source | License |
+| --- | --- | --- | --- |
+| Player ship | Valkyrie, [Babylon.js Space Pirates](https://github.com/BabylonJS/SpacePirates) | Babylon.js contributors | Apache-2.0 |
+| Warships (Defiant, Excalibur, Reliant) | Raider, [Babylon.js Space Pirates](https://github.com/BabylonJS/SpacePirates) | Babylon.js contributors | Apache-2.0 |
+| Freighters (Kobayashi Maru, Lakul) | carrier01, [Spaceships](https://opengameart.org/content/spaceships-6) | Viktor Hahn | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| Hauler (Botany Bay) | carrier03, [More Spaceships](https://opengameart.org/content/more-spaceships) | Viktor Hahn | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| Scouts (Grissom, Oberth, Copernicus) | frigate01, [Spaceships](https://opengameart.org/content/spaceships-6) | Viktor Hahn | [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/) |
+| ISS | ISS (D), [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) | NASA | Public domain |
+| Lunar Gateway | Gateway Core, [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) | NASA | Public domain |
+| Shuttle Galileo | [Space Shuttle Discovery scan](https://3d.si.edu/object/3d/orbiter-space-shuttle-ov-103-discovery:d8c636ce-4ebc-11ea-b77f-2e728ce88125) | Smithsonian Institution | CC0 |
+
+The large Star Trek-style stations (Spacedock One, Utopia Planitia, Jove Gateway, Cronos Station) remain procedural meshes. NASA/Smithsonian usage does not imply endorsement.

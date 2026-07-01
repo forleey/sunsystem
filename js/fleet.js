@@ -2,12 +2,23 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=24';
-import { G0 } from './data.js?v=24';
+import { toRender } from './scene.js?v=25';
+import { G0 } from './data.js?v=25';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=24';
+} from './fleet_meshes.js?v=25';
+import { loadInto } from './models.js?v=25';
+
+// open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
+// yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
+const mkISS = () => loadInto(buildISS(THREE), 'iss.glb', { lengthKm: 0.109, blinkers: 0 });
+const mkFreighter = () => loadInto(buildFreighter(THREE), 'freighter.glb', { lengthKm: 0.5, yaw: 0, blinkers: 3 });
+const mkWarship = () => loadInto(buildWarship(THREE), 'warship.glb', { lengthKm: 0.35, yaw: Math.PI, blinkers: 3 });
+const mkScout = () => loadInto(buildScout(THREE), 'scout.glb', { lengthKm: 0.12, yaw: Math.PI, blinkers: 2 });
+const mkHauler = () => loadInto(buildFreighter(THREE), 'hauler.glb', { lengthKm: 0.55, yaw: 0, blinkers: 3 });
+// Smithsonian Discovery scan comes in launch pose: nose -Y, belly -Z
+const mkShuttle = () => loadInto(buildScout(THREE), 'shuttle.glb', { lengthKm: 0.037, pitch: Math.PI / 2, roll: Math.PI, blinkers: 0 });
 
 const TAU = Math.PI * 2;
 const smooth = u => u * u * (3 - 2 * u);
@@ -29,22 +40,25 @@ export class Fleet {
     this.addOrbiter('Utopia Planitia', buildRingStation(THREE), B('Mars'), 15000, 3.9, 0.30, 2.2, 0.05);
     this.addOrbiter('Jove Gateway', buildGateway(THREE), B('Jupiter'), 280000, 0.4, 0.15, 3.0, 0.03);
     this.addOrbiter('Cronos Station', buildRingStation(THREE), B('Saturn'), 320000, 2.2, 0.40, 2.2, 0.05);
-    this.addOrbiter('ISS', buildISS(THREE), B('Earth'), 6791, 0.0, 0.90, 0.06, 0);
+    this.addOrbiter('ISS', mkISS(), B('Earth'), 6791, 0.0, 0.90, 0.06, 0);
+    // NASA Gateway (real CAD model) parked around the Moon
+    this.addOrbiter('Lunar Gateway', loadInto(buildISS(THREE), 'gateway_station.glb', { lengthKm: 0.04, blinkers: 0 }),
+      B('Moon'), 3500, 1.0, 1.20, 0.025, 0);
 
     // ---------- warship patrols: powered impulse circles, visibly moving at warp 1 ----------
-    this.addPatrol('USS Defiant', buildWarship(THREE), B('Earth'), 52000, 260, 0.0, 0.35);
-    this.addPatrol('USS Excalibur', buildWarship(THREE), B('Earth'), 62000, 340, 2.1, -0.50);
-    this.addPatrol('USS Reliant', buildWarship(THREE), B('Jupiter'), 300000, 600, 1.0, 0.30);
-    this.addPatrol('USS Grissom', buildScout(THREE), B('Venus'), 30000, 300, 0.5, 0.70);
+    this.addPatrol('USS Defiant', mkWarship(), B('Earth'), 52000, 260, 0.0, 0.35);
+    this.addPatrol('USS Excalibur', mkWarship(), B('Earth'), 62000, 340, 2.1, -0.50);
+    this.addPatrol('USS Reliant', mkWarship(), B('Jupiter'), 300000, 600, 1.0, 0.30);
+    this.addPatrol('USS Grissom', mkScout(), B('Venus'), 30000, 300, 0.5, 0.70);
 
     // ---------- lanes: ping-pong runs between two anchors (bodies or stations) ----------
-    this.addLane('SS Kobayashi Maru', buildFreighter(THREE), B('Earth'), B('Mars'), 3.456e6, 0.15, 2e6);
-    this.addLane('SS Botany Bay', buildFreighter(THREE), B('Earth'), B('Jupiter'), 1.0368e7, 0.62, 5e6);
-    this.addLane('SS Lakul', buildFreighter(THREE), B('Mars'), B('Saturn'), 1.728e7, 0.40, 8e6);
-    this.addLane('USS Oberth', buildScout(THREE), B('Earth'), B('Moon'), 240, 0.0, 30000);
-    const gal = buildScout(THREE); gal.scale.setScalar(0.45);
-    this.addLane('Shuttle Galileo', gal, S('Spacedock One'), S('ISS'), 90, 0.0, 3000);
-    const cop = buildScout(THREE); cop.scale.setScalar(0.45);
+    this.addLane('SS Kobayashi Maru', mkFreighter(), B('Earth'), B('Mars'), 3.456e6, 0.15, 2e6);
+    this.addLane('SS Botany Bay', mkHauler(), B('Earth'), B('Jupiter'), 1.0368e7, 0.62, 5e6);
+    this.addLane('SS Lakul', mkFreighter(), B('Mars'), B('Saturn'), 1.728e7, 0.40, 8e6);
+    this.addLane('USS Oberth', mkScout(), B('Earth'), B('Moon'), 240, 0.0, 30000);
+    // the real Discovery orbiter commutes between Spacedock and the ISS
+    this.addLane('Shuttle Galileo', mkShuttle(), S('Spacedock One'), S('ISS'), 90, 0.0, 3000);
+    const cop = mkScout(); cop.scale.setScalar(0.45);
     this.addLane('Shuttle Copernicus', cop, S('Spacedock One'), B('Moon'), 300, 0.5, 40000);
   }
 

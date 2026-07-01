@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>model triage — dev only</title>
+<style>
+  body{margin:0;background:#0a0e16;color:#cfe3f5;font:11px monospace;}
+  #grid{display:grid;grid-template-columns:repeat(4,1fr);}
+  .cell{position:relative;border:1px solid #223;}
+  .cell canvas{display:block;width:100%;height:100%;}
+  .cell .tag{position:absolute;left:6px;top:4px;color:#6ad1ff;text-shadow:0 0 4px #000;}
+</style>
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="grid"></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+
+const IDS = (new URLSearchParams(location.search).get('ids') ||
+  'ud8Y8uanwm,8G2xUSbSQT,86uqxVABJfV,dKFQSZCHQWf,VSxUAFhzbA,9pBgIlbtj3F,xNbtFQwirO,DbGajMHrvp,6eRDOiTxvOo,Jqfed124pQ,aI32MU8lhd4,647DTebhyBD,5nWeu4IQXVX,HnXp3ZkfDk,emG0dq38D8f,9McOiZT2oty').split(',');
+const DIR = new URLSearchParams(location.search).get('dir') || 'models_src/poly';
+const CW = Math.floor(innerWidth / 4) - 2, CH = Math.floor(innerHeight / Math.ceil(IDS.length / 4)) - 2;
+
+const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder);
+const cells = [];
+window.__ready = 0;
+for (const id of IDS) {
+  const cell = document.createElement('div'); cell.className = 'cell'; cell.style.height = CH + 'px';
+  cell.innerHTML = `<span class="tag">${id}</span>`;
+  document.getElementById('grid').appendChild(cell);
+  const renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setSize(CW, CH); renderer.setPixelRatio(1);
+  cell.appendChild(renderer.domElement);
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0x101624);
+  const cam = new THREE.PerspectiveCamera(40, CW / CH, 0.01, 1000);
+  scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+  const sun = new THREE.DirectionalLight(0xffffff, 2.2); sun.position.set(3, 4, 5); scene.add(sun);
+  const c = { renderer, scene, cam, obj: null };
+  cells.push(c);
+  loader.load(`${DIR}/${id}.glb`, g => {
+    const obj = g.scene;
+    const box = new THREE.Box3().setFromObject(obj);
+    const size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+    obj.position.sub(ctr);
+    const R = Math.max(size.x, size.y, size.z);
+    const CAM = new URLSearchParams(location.search).get('cam');
+    if (CAM === 'front') cam.position.set(0, R * 0.12, R * 1.6);        // looking at the +Z face
+    else if (CAM === 'side') cam.position.set(R * 1.6, R * 0.12, 0);    // looking at the +X face
+    else cam.position.set(R * 0.9, R * 0.55, R * 1.15);
+    cam.lookAt(0, 0, 0);
+    if (new URLSearchParams(location.search).has('axes')) {
+      scene.add(new THREE.AxesHelper(R * 0.9));   // red=+X green=+Y blue=+Z
+    }
+    scene.add(obj); c.obj = obj; window.__ready++;
+  }, undefined, e => { cell.querySelector('.tag').textContent = id + ' FAIL'; window.__ready++; });
+}
+let t = 0;
+const FREEZE = new URLSearchParams(location.search).has('freeze');
+(function anim() {
+  requestAnimationFrame(anim); if (!FREEZE) t += 0.004;
+  for (const c of cells) { if (c.obj) c.obj.rotation.y = t; c.renderer.render(c.scene, c.cam); }
+})();
+</script>
+</body>
+</html>
