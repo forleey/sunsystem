@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=22';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=23';
 
 const DEG = Math.PI / 180;
 
@@ -145,6 +145,18 @@ export class Sim {
 
   resetShip() {
     this.beamShipTo('Earth', 20000);
+  }
+
+  // teleport the ship to an explicit state (used for beaming to stations/ships)
+  placeShip(px, py, pz, vx, vy, vz) {
+    const s = this.ship;
+    s.pos.set(px, py, pz);
+    s.vel.set(vx, vy, vz);
+    s.u.copy(s.vel).scale(1 / Math.sqrt(Math.max(1e-12, 1 - (s.vel.len() / C_KMS) ** 2)));
+    s.thrustAcc = 0;
+    s.throttle = 0;
+    s.braking = false;
+    s.autopilot = null;
   }
 
   computeAcc() {

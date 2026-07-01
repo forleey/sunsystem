@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=22';
-import { Sim, V3 } from './physics.js?v=22';
-import { SystemView } from './bodies3d.js?v=22';
-import { ShipView } from './ship3d.js?v=22';
-import { UI } from './ui.js?v=22';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=22';
+import { createStage, makeSky } from './scene.js?v=23';
+import { Sim, V3 } from './physics.js?v=23';
+import { SystemView } from './bodies3d.js?v=23';
+import { ShipView } from './ship3d.js?v=23';
+import { UI } from './ui.js?v=23';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=23';
+import { Fleet } from './fleet.js?v=23';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -13,6 +14,7 @@ const sky = makeSky(stage.scene);
 const sim = new Sim();
 const system = new SystemView(stage.scene, sim);
 const shipView = new ShipView(stage.scene, sim);
+const fleet = new Fleet(stage.scene, sim);
 
 // Andromeda center & approach point in the physics (ecliptic) frame
 const aDir = new V3(
@@ -61,18 +63,47 @@ function aimShipAt(body) {
 aimShipAt(sim.body('Earth'));   // boot: chase view opens onto the planet
 
 let focusName = 'Earth';
-const ui = new UI(sim, applyFocus);
+const ui = new UI(sim, (name, beam) => { if (beam) beamToName(name); else applyFocus(name); },
+  fleet.objects.map(o => o.name));
 
 function focusRadiusKm() {
   if (focusName === 'Starship') return 0.35;
   if (focusName === 'Andromeda') return ANDROMEDA.radius;
+  const fo = fleet.byName.get(focusName);
+  if (fo) return fo.radiusKm;
   const b = sim.body(focusName);
   return b ? b.r * (b.name === 'Sun' ? Math.min(ui.state.sizeMult, 60) : ui.state.sizeMult) : 6371;
 }
 function focusPos(out) {
   if (focusName === 'Starship') return out.copy(sim.ship.pos);
   if (focusName === 'Andromeda') return out.copy(andromedaPos);
+  const fo = fleet.byName.get(focusName);
+  if (fo) return out.copy(fo.pos);
   return out.copy(sim.body(focusName).pos);
+}
+
+// beam the player's ship to any body or fleet object (stations, NPC ships)
+const fleetVel = { x: 0, y: 0, z: 0 };
+function beamToName(name) {
+  const fo = fleet.byName.get(name);
+  if (fo) {
+    fo.state(sim.time, fo.pos);
+    fleet.velOf(fo, sim.time, fleetVel);
+    const sun = sim.bodies[0];
+    let dx = sun.pos.x - fo.pos.x, dy = sun.pos.y - fo.pos.y, dz = sun.pos.z - fo.pos.z;
+    const dl = Math.hypot(dx, dy, dz) || 1;
+    const standoff = Math.max(fo.radiusKm * 3, 1.5);
+    sim.placeShip(
+      fo.pos.x + (dx / dl) * standoff, fo.pos.y + (dy / dl) * standoff, fo.pos.z + (dz / dl) * standoff,
+      fleetVel.x, fleetVel.y, fleetVel.z
+    );
+    aimShipAt(fo);
+  } else if (sim.body(name)) {
+    sim.beamShipTo(name);
+    aimShipAt(sim.body(name));
+  } else return;
+  applyFocus('Starship', false);
+  ui.toast('Beamed to ' + name);
 }
 function applyFocus(name, announce = true) {
   focusName = name;
@@ -100,6 +131,9 @@ function applyFocus(name, announce = true) {
 const anchors = sim.bodies.map(b => ({ name: b.name, getPos: () => b.pos, minDist: Infinity }));
 anchors.push({ name: 'Starship', cls: 'ship', getPos: () => sim.ship.pos, minDist: Infinity });
 anchors.push({ name: 'Andromeda', getPos: () => andromedaPos, minDist: Infinity });
+for (const o of fleet.objects) {
+  if (o.label) anchors.push({ name: o.name, cls: 'station', getPos: () => o.pos, minDist: Infinity });
+}
 ui.initLabels(anchors);
 
 // ---------- input ----------
@@ -214,10 +248,12 @@ function frameBody(now) {
   }
 
   sim.step(dtWall * ui.state.warp);
+  fleet.tick(sim.time);
 
   focusPos(fPos);
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
   system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
+  fleet.place(fPos, sim.time, dtWall);
 
   if (focusName === 'Starship') {
     // chase cam: sit aft-above of the hull, follow orientation with a soft lag
@@ -228,7 +264,7 @@ function frameBody(now) {
     stage.camera.lookAt(0, 0, 0);
   } else {
     if (!controls.enabled) { controls.enabled = true; stage.camera.up.set(0, 1, 0); }
-    controls.minDistance = Math.max(focusRadiusKm() * 1.25, 1);
+    controls.minDistance = Math.max(focusRadiusKm() * 1.25, 0.08);
     controls.update();
   }
 
@@ -239,7 +275,7 @@ function frameBody(now) {
   stage.composer.render();
 }
 
-window.__dbg = { stage, sim, system, shipView, sky, applyFocus, tick: t => frameBody(t) };
+window.__dbg = { stage, sim, system, shipView, sky, fleet, applyFocus, beamToName, tick: t => frameBody(t) };
 console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);

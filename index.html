@@ -70,6 +70,8 @@
   .lbl:hover{color:var(--acc);}
   .lbl.ship{color:var(--acc2);}
   .lbl.ship::after{border-color:var(--acc2);}
+  .lbl.station{color:#b9e5a8; font-size:10px;}
+  .lbl.station::after{border-color:#b9e5a8; border-radius:1px;}
 
   #toast{position:fixed; top:18px; left:50%; transform:translateX(-50%); background:var(--glass);
     border:1px solid var(--line); border-radius:9px; padding:9px 18px; color:var(--acc2);
@@ -118,6 +120,7 @@
     <tr><td>F</td><td>focus ship</td></tr>
     <tr><td>1 – 9, 0</td><td>focus Sun … Pluto</td></tr>
     <tr><td>&#8679; + 1 – 9, 0</td><td>beam ship into orbit there</td></tr>
+    <tr><td>&#8679; + click label</td><td>beam ship to any station / body</td></tr>
     <tr><td>drag / wheel</td><td>orbit & zoom · ship view: drag &#8597; camera height, wheel distance</td></tr>
   </table></div>
 </div>
@@ -146,6 +149,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=22"></script>
+<script type="module" src="./js/main.js?v=23"></script>
 </body>
 </html>

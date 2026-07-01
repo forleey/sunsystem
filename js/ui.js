@@ -1,12 +1,12 @@
 // Sliders, HUD, body labels.
 import * as THREE from 'three';
-import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=22';
-import { toRender } from './scene.js?v=22';
+import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=23';
+import { toRender } from './scene.js?v=23';
 
 const $ = id => document.getElementById(id);
 
 export class UI {
-  constructor(sim, onFocus) {
+  constructor(sim, onFocus, extraNames = []) {
     this.sim = sim;
     this.state = { warp: 1, sizeMult: 1, shipG: 1, bloom: 0.15, trails: true, labels: true };
     this.onFocus = onFocus;
@@ -56,7 +56,7 @@ export class UI {
     });
 
     const sel = $('focus');
-    const names = ['Starship', ...sim.bodies.map(b => b.name), 'Andromeda'];
+    const names = ['Starship', ...sim.bodies.map(b => b.name), ...extraNames, 'Andromeda'];
     for (const n of names) {
       const o = document.createElement('option');
       o.value = n; o.textContent = n;
@@ -96,7 +96,7 @@ export class UI {
       const el = document.createElement('div');
       el.className = 'lbl' + (a.cls ? ' ' + a.cls : '');
       el.textContent = a.name;
-      el.addEventListener('click', () => this.onFocus(a.name));
+      el.addEventListener('click', e => this.onFocus(a.name, e.shiftKey));
       wrap.appendChild(el);
       this.labelEls.set(a.name, { el, a });
     }
