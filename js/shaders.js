@@ -179,6 +179,12 @@ void main(){
   }
   col = mix(albedo, vec3(1.0), cl*0.9);
   spec = ocean * (1.0 - cl);
+  // Rayleigh-ish veil: a blue haze mutes the surface everywhere and thickens
+  // toward the limb where the view path through air is longest (day side only)
+  float grazing = 1.0 - clamp(abs(dot(n, vd)), 0.0, 1.0);
+  float haze = (0.22 + 0.68 * pow(max(grazing, 0.0), 1.6)) * day;
+  col = mix(col, vec3(0.58, 0.73, 1.0), clamp(haze, 0.0, 0.9));
+  spec *= 1.0 - haze * 0.45;
   float night = 1.0 - smoothstep(-0.2, 0.05, ndl);
   vec3 lights = texture2D(uNightMap, vUv).rgb;
   emis = lights * night * (1.0 - cl*0.8) * 1.2;
@@ -216,9 +222,9 @@ void main(){
   vec3 vd = normalize(uCamPos - vWp);
   // fast-math lets |dot| creep past 1 -> negative pow base -> NaN; bloom's
   // downsample then smears one NaN texel into a big black square. Clamp.
-  float fres = pow(max(1.0 - abs(dot(n,vd)), 0.0), 3.2);
+  float fres = pow(max(1.0 - abs(dot(n,vd)), 0.0), 2.5);
   float lit = clamp(dot(n, normalize(uSunDir))*1.4+0.35, 0.0, 1.0);
-  gl_FragColor = vec4(uColor * fres * lit * 1.6, fres*lit);
+  gl_FragColor = vec4(uColor * fres * lit * 1.9, fres*lit);
 }
 `;
 
