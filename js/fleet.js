@@ -2,13 +2,13 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=28';
-import { G0 } from './data.js?v=28';
+import { toRender } from './scene.js?v=29';
+import { G0 } from './data.js?v=29';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=28';
-import { loadInto } from './models.js?v=28';
+} from './fleet_meshes.js?v=29';
+import { loadInto } from './models.js?v=29';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
@@ -38,8 +38,14 @@ export class Fleet {
     // ---------- stations: real circular gravity orbits around their parent ----------
     this.addOrbiter('Spacedock One', buildSpacedock(THREE), B('Earth'), 45000, 1.2, 0.10, 4.2, 0.02);
     this.addOrbiter('Utopia Planitia', buildRingStation(THREE), B('Mars'), 15000, 3.9, 0.30, 2.2, 0.05);
-    this.addOrbiter('Jove Gateway', buildGateway(THREE), B('Jupiter'), 280000, 0.4, 0.15, 3.0, 0.03);
-    this.addOrbiter('Cronos Station', buildRingStation(THREE), B('Saturn'), 320000, 2.2, 0.40, 2.2, 0.05);
+    // megastructures: Jove Gateway is Moon-class (~3470 km), Cronos Station and
+    // the free-flying belt hub K-7 are Pluto-class (~2380 km); slow, stately spin
+    const jove = buildGateway(THREE); jove.scale.setScalar(632);          // 5.5 km build -> 3475 km
+    this.addOrbiter('Jove Gateway', jove, B('Jupiter'), 450000, 0.4, 0.15, 1737, 0.008);
+    const cronos = buildRingStation(THREE); cronos.scale.setScalar(594);  // 4 km build -> 2376 km
+    this.addOrbiter('Cronos Station', cronos, B('Saturn'), 400000, 2.2, 0.40, 1190, 0.01);
+    const k7 = buildSpacedock(THREE); k7.scale.setScalar(297);            // 8 km build -> 2376 km
+    this.addOrbiter('Station K-7', k7, B('Sun'), 4.19e8, 2.6, 0.12, 1190, 0.012);
     this.addOrbiter('ISS', mkISS(), B('Earth'), 6791, 0.0, 0.90, 0.06, 0);
     // NASA Gateway (real CAD model) parked around the Moon
     this.addOrbiter('Lunar Gateway', loadInto(buildISS(THREE), 'gateway_station.glb', { lengthKm: 0.04, blinkers: 0 }),
