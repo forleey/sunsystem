@@ -99,6 +99,13 @@
     <label class="chk"><input type="checkbox" id="c-trails" checked> Orbit trails</label>
     <label class="chk"><input type="checkbox" id="c-labels" checked> Labels</label>
     <hr>
+    <div class="row"><label>Music <b id="v-track">off</b></label>
+      <div class="btnrow" style="margin-top:4px">
+        <button id="b-music">&#9834; Play</button>
+        <button id="b-nexttrack">&#9197; Next</button>
+      </div>
+    </div>
+    <hr>
     <div class="row"><label>Focus</label><select id="focus"></select></div>
     <div class="btnrow">
       <button id="b-reset">Realistic defaults</button>
@@ -118,6 +125,7 @@
     <tr><td>J</td><td>jump: Andromeda @ 100 000 g</td></tr>
     <tr><td>H</td><td>autopilot home to Earth</td></tr>
     <tr><td>F</td><td>focus ship</td></tr>
+    <tr><td>M</td><td>music on / off</td></tr>
     <tr><td>1 – 9, 0</td><td>focus Sun … Pluto</td></tr>
     <tr><td>&#8679; + 1 – 9, 0</td><td>beam ship into orbit there</td></tr>
     <tr><td>&#8679; + click label</td><td>beam ship to any station / body</td></tr>
@@ -149,6 +157,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=23"></script>
+<script type="module" src="./js/main.js?v=24"></script>
 </body>
 </html>

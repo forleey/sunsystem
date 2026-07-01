@@ -48,6 +48,8 @@ Sliders: time warp (1×–10⁹×), gravity G multiplier, planet visual size (1�
 
 Known simplification: the Milky Way skybox stays fixed during the intergalactic trip (no parallax for the home galaxy).
 
+- **Ambient soundtrack**: three instrumental space tracks ("Deep Field Drift", "Dawnlight Over the Rim", "Drift Among Distant Moons") composed as note data by claude-sonnet-5 via OpenRouter and synthesized live in the browser with Web Audio (no audio files). Starts on first interaction; M toggles, panel button skips tracks.
+
 ## Credits
 
 Earth and Moon texture maps (`textures/`) by [Solar System Scope](https://www.solarsystemscope.com/textures/), licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), based on NASA imagery. All other surfaces are procedural GLSL.

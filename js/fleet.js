@@ -2,12 +2,12 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=23';
-import { G0 } from './data.js?v=23';
+import { toRender } from './scene.js?v=24';
+import { G0 } from './data.js?v=24';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=23';
+} from './fleet_meshes.js?v=24';
 
 const TAU = Math.PI * 2;
 const smooth = u => u * u * (3 - 2 * u);

@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=23';
-import { Sim, V3 } from './physics.js?v=23';
-import { SystemView } from './bodies3d.js?v=23';
-import { ShipView } from './ship3d.js?v=23';
-import { UI } from './ui.js?v=23';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=23';
-import { Fleet } from './fleet.js?v=23';
+import { createStage, makeSky } from './scene.js?v=24';
+import { Sim, V3 } from './physics.js?v=24';
+import { SystemView } from './bodies3d.js?v=24';
+import { ShipView } from './ship3d.js?v=24';
+import { UI } from './ui.js?v=24';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=24';
+import { Fleet } from './fleet.js?v=24';
+import { Music, renderTest } from './music.js?v=24';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -171,6 +172,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyJ') startAndromedaJump();
   if (e.code === 'KeyH') startHomeJump();
   if (e.code === 'KeyF') applyFocus('Starship');
+  if (e.code === 'KeyM') { music.toggle(); music.onTrackChange(music.title); }
   if (e.code === 'KeyX') {
     sim.ship.autopilot = null; sim.ship.thrustAcc = 0; sim.ship.throttle = 0; sim.ship.braking = false;
     ui.setWarp(1); ui.toast('Thrust cut — coasting on inertia');
@@ -189,6 +191,25 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());   // no stuck thrust when the tab loses focus
+
+// ---------- ambient music (tracks composed via OpenRouter, synthesized live) ----------
+const music = new Music(title => {
+  document.getElementById('v-track').textContent = music.enabled ? title : 'off';
+  document.getElementById('b-music').innerHTML = music.enabled ? '&#9834; Pause' : '&#9834; Play';
+});
+document.getElementById('b-music').addEventListener('click', () => {
+  music.toggle();
+  music.onTrackChange(music.title);
+});
+document.getElementById('b-nexttrack').addEventListener('click', () => music.next());
+// start softly on the very first interaction anywhere (autoplay policy)
+const musicKickoff = () => {
+  if (!music.ctx) music.start();
+  window.removeEventListener('pointerdown', musicKickoff, true);
+  window.removeEventListener('keydown', musicKickoff, true);
+};
+window.addEventListener('pointerdown', musicKickoff, true);
+window.addEventListener('keydown', musicKickoff, true);
 
 // panel controls steal keyboard focus after a click/drag — give it back to the helm.
 // selects only blur on change: blurring on pointerup would close the dropdown mid-pick
@@ -275,7 +296,7 @@ function frameBody(now) {
   stage.composer.render();
 }
 
-window.__dbg = { stage, sim, system, shipView, sky, fleet, applyFocus, beamToName, tick: t => frameBody(t) };
+window.__dbg = { stage, sim, system, shipView, sky, fleet, music, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };
 console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);
