@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=29';
-import { Sim, V3 } from './physics.js?v=29';
-import { SystemView } from './bodies3d.js?v=29';
-import { ShipView } from './ship3d.js?v=29';
-import { UI } from './ui.js?v=29';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=29';
-import { Fleet } from './fleet.js?v=29';
-import { Music, renderTest } from './music.js?v=29';
-import { initEnvironment } from './models.js?v=29';
+import { createStage, makeSky } from './scene.js?v=30';
+import { Sim, V3 } from './physics.js?v=30';
+import { SystemView } from './bodies3d.js?v=30';
+import { ShipView } from './ship3d.js?v=30';
+import { UI } from './ui.js?v=30';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=30';
+import { Fleet } from './fleet.js?v=30';
+import { Music, renderTest } from './music.js?v=30';
+import { initEnvironment } from './models.js?v=30';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -42,24 +42,33 @@ stage.renderer.domElement.addEventListener('wheel', e => {
   if (focusName !== 'Starship') return;
   chaseDist = Math.min(40, Math.max(0.5, chaseDist * Math.exp(e.deltaY * 0.001)));
 }, { passive: true });
-// ship view mouse: hold LMB to steer (deltas feed the same angVel the keys
-// use, so rotational inertia is preserved); RMB drag sets camera height
+// ship view mouse: hold LMB to steer — the mouse turns the nose DIRECTLY
+// (no rotational inertia: stop the mouse, the turn stops); RMB drag sets
+// camera height. Keyboard helm keeps its inertia model untouched.
 let chaseDragY = null;
 let steerLast = null;
+const steerRot = new THREE.Quaternion();
+const steerAxis = new THREE.Vector3();
 stage.renderer.domElement.addEventListener('contextmenu', e => {
   if (focusName === 'Starship') e.preventDefault();
 });
 stage.renderer.domElement.addEventListener('pointerdown', e => {
   if (focusName !== 'Starship') return;
   if (e.button === 2) chaseDragY = e.clientY;
-  else if (e.button === 0) steerLast = { x: e.clientX, y: e.clientY };
+  else if (e.button === 0) {
+    steerLast = { x: e.clientX, y: e.clientY };
+    shipView.angVel.set(0, 0, 0);          // kill any residual key-spin
+  }
 });
 window.addEventListener('pointermove', e => {
   if (focusName !== 'Starship') return;
   if (steerLast) {
-    const K = 0.004, LIM = 0.75, av = shipView.angVel;   // LIM = MAX*SPD from ship3d
-    av.y = Math.max(-LIM, Math.min(LIM, av.y - (e.clientX - steerLast.x) * K));
-    av.x = Math.max(-LIM, Math.min(LIM, av.x - (e.clientY - steerLast.y) * K));
+    const K = 0.0035;                      // rad per px, applied immediately
+    const dx = e.clientX - steerLast.x, dy = e.clientY - steerLast.y;
+    steerRot.setFromAxisAngle(steerAxis.set(0, 1, 0), -dx * K);
+    shipView.quat.multiply(steerRot);
+    steerRot.setFromAxisAngle(steerAxis.set(1, 0, 0), -dy * K);
+    shipView.quat.multiply(steerRot);
     steerLast = { x: e.clientX, y: e.clientY };
   } else if (chaseDragY !== null) {
     chaseEl = Math.min(1.35, Math.max(-0.45, chaseEl + (e.clientY - chaseDragY) * 0.004));
