@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SKY_V, SKY_F, logDepth } from './shaders.js?v=40';
+import { SKY_V, SKY_F, logDepth } from './shaders.js?v=41';
 
 export function toRender(v, out) { return out.set(v.x, v.z, -v.y); }
 
@@ -40,17 +40,71 @@ export function createStage(container) {
   const fxaa = new ShaderPass(FXAAShader);
   composer.addPass(fxaa);
 
+  // film look: grain + vignette + subtle chromatic aberration + teal/orange
+  // grading + dither, in one full-screen pass AFTER FXAA (so the grain stays crisp)
+  const FilmLookShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      uTime: { value: 0 },
+      uRes: { value: new THREE.Vector2(1, 1) },
+    },
+    vertexShader: /* glsl */`
+      varying vec2 vUv;
+      void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+    `,
+    fragmentShader: /* glsl */`
+      uniform sampler2D tDiffuse;
+      uniform float uTime;
+      uniform vec2 uRes;
+      varying vec2 vUv;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      void main(){
+        vec2 c = vUv - 0.5;
+        float r2 = dot(c, c);
+
+        // lens: chromatic aberration growing toward the frame edge
+        vec2 ca = c * (r2 * 0.010);
+        vec3 col;
+        col.r = texture2D(tDiffuse, vUv + ca).r;
+        col.g = texture2D(tDiffuse, vUv).g;
+        col.b = texture2D(tDiffuse, vUv - ca).b;
+
+        // grade: teal shadows, warm highlights, touch of saturation + contrast
+        float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+        col = mix(col, col * vec3(0.93, 1.00, 1.07), (1.0 - smoothstep(0.0, 0.45, lum)) * 0.35);
+        col = mix(col, col * vec3(1.06, 1.00, 0.93), smoothstep(0.55, 1.0, lum) * 0.28);
+        col = mix(vec3(lum), col, 1.07);
+        col = clamp((col - 0.5) * 1.045 + 0.5, 0.0, 1.0);
+
+        // vignette (corners ~ -22%)
+        col *= mix(0.78, 1.0, 1.0 - smoothstep(0.32, 1.0, sqrt(r2) * 1.5));
+
+        // animated film grain, stronger in the shadows
+        float g = hash(vUv * uRes + vec2(fract(uTime * 13.7) * 91.0, fract(uTime * 7.3) * 57.0)) - 0.5;
+        col += g * (0.045 * (1.0 - smoothstep(0.0, 0.6, lum)) + 0.012);
+
+        // dither kills banding in the dark space gradients
+        col += (hash(vUv * uRes * 1.71 + fract(uTime * 3.1)) - 0.5) * (2.0 / 255.0);
+
+        gl_FragColor = vec4(col, 1.0);
+      }
+    `,
+  };
+  const film = new ShaderPass(FilmLookShader);
+  composer.addPass(film);
+
   function setSize() {
     const w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h; camera.updateProjectionMatrix();
     renderer.setSize(w, h); composer.setSize(w, h);
     const pr = renderer.getPixelRatio();
     fxaa.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
+    film.material.uniforms.uRes.value.set(w * pr, h * pr);
   }
   setSize();
   window.addEventListener('resize', setSize);
 
-  return { renderer, scene, camera, composer, bloom };
+  return { renderer, scene, camera, composer, bloom, film };
 }
 
 export function makeSky(scene) {

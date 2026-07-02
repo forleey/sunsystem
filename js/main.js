@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=40';
-import { Sim, V3 } from './physics.js?v=40';
-import { SystemView } from './bodies3d.js?v=40';
-import { ShipView } from './ship3d.js?v=40';
-import { UI } from './ui.js?v=40';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=40';
-import { Fleet } from './fleet.js?v=40';
-import { Music, renderTest } from './music.js?v=40';
-import { initEnvironment } from './models.js?v=40';
+import { createStage, makeSky } from './scene.js?v=41';
+import { Sim, V3 } from './physics.js?v=41';
+import { SystemView } from './bodies3d.js?v=41';
+import { ShipView } from './ship3d.js?v=41';
+import { UI } from './ui.js?v=41';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=41';
+import { Fleet } from './fleet.js?v=41';
+import { Music, renderTest } from './music.js?v=41';
+import { initEnvironment } from './models.js?v=41';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -325,6 +325,7 @@ function frameBody(now) {
   }
 
   stage.bloom.strength = ui.state.bloom;
+  stage.film.material.uniforms.uTime.value = (now * 0.001) % 100;
   ui.updateLabels(fPos, stage.camera, focusName);
   ui.updateHUD(hudExtra());
 
@@ -343,6 +344,11 @@ function frameBody(now) {
     reticleEl.style.display = 'none';
   }
 }
+
+// film-look toggle (settings panel)
+const filmChk = document.getElementById('c-film');
+stage.film.enabled = filmChk.checked;
+filmChk.addEventListener('change', () => { stage.film.enabled = filmChk.checked; filmChk.blur(); });
 
 window.__dbg = { stage, sim, system, shipView, sky, fleet, music, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };
 console.log('sunsystem boot ok');
