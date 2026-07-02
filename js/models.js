@@ -43,6 +43,54 @@ const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 const cache = new Map();          // url -> Promise<GLTF scene template>
 
+// ---- fleet paint scheme: white hulls with light gray shading ----
+// Base-color maps are converted to bright grayscale (panel detail survives as
+// gray tones); flat material colors get the same treatment. Pure glow
+// materials (blinkers, windows, engine discs — emissive, no map) keep their
+// color, and emissive TEXTURES on washed materials stay lit too.
+const washedTex = new WeakMap();
+function whitewashTexture(tex) {
+  if (washedTex.has(tex)) return washedTex.get(tex);
+  const img = tex.image;
+  if (!img || !img.width) return tex;
+  const cnv = document.createElement('canvas');
+  cnv.width = img.width; cnv.height = img.height;
+  const ctx = cnv.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const d = ctx.getImageData(0, 0, cnv.width, cnv.height);
+  const a = d.data;
+  for (let i = 0; i < a.length; i += 4) {
+    const v = 170 + (0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2]) * 0.33;
+    a[i] = a[i + 1] = a[i + 2] = v;
+  }
+  ctx.putImageData(d, 0, 0);
+  const t = new THREE.CanvasTexture(cnv);
+  t.colorSpace = tex.colorSpace;
+  t.flipY = tex.flipY;
+  t.wrapS = tex.wrapS; t.wrapT = tex.wrapT;
+  t.anisotropy = tex.anisotropy;
+  washedTex.set(tex, t);
+  return t;
+}
+export function whitewashObject(root) {
+  root.traverse(n => {
+    if (!n.isMesh) return;
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    for (const m of mats) {
+      if (!m || m.userData._washed) continue;
+      const glowing = m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.2 && !m.map;
+      if (glowing) continue;   // nav lights & engine glows keep their color
+      if (m.map) { m.map = whitewashTexture(m.map); m.color && m.color.setRGB(1, 1, 1); }
+      else if (m.color) {
+        const c = m.color;
+        const v = 0.68 + (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) * 0.32;
+        c.setRGB(v, v, v);
+      }
+      m.userData._washed = true;
+    }
+  });
+}
+
 function fetchModel(url) {
   if (!cache.has(url)) {
     cache.set(url, new Promise((res, rej) => loader.load(url, g => res(g.scene), undefined, rej)));
@@ -83,6 +131,7 @@ function normalize(src, { lengthKm, yaw = 0, pitch = 0, roll = 0, lift = 0, blin
       if (!m.metalnessMap && m.metalness > 0.85) { m.metalness = 0.35; m.roughness = Math.max(m.roughness ?? 1, 0.5); }
     }
   });
+  whitewashObject(obj);   // fleet paint scheme: white hull, light gray shading
 
   // nav blinkers (fleet.place drives emissiveIntensity)
   wrap.userData.blinkers = [];
