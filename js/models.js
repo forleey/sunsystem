@@ -60,7 +60,7 @@ function whitewashTexture(tex) {
   const d = ctx.getImageData(0, 0, cnv.width, cnv.height);
   const a = d.data;
   for (let i = 0; i < a.length; i += 4) {
-    const v = 170 + (0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2]) * 0.33;
+    const v = 205 + (0.299 * a[i] + 0.587 * a[i + 1] + 0.114 * a[i + 2]) * 0.20;
     a[i] = a[i + 1] = a[i + 2] = v;
   }
   ctx.putImageData(d, 0, 0);
@@ -83,7 +83,7 @@ export function whitewashObject(root) {
       if (m.map) { m.map = whitewashTexture(m.map); m.color && m.color.setRGB(1, 1, 1); }
       else if (m.color) {
         const c = m.color;
-        const v = 0.68 + (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) * 0.32;
+        const v = 0.82 + (0.299 * c.r + 0.587 * c.g + 0.114 * c.b) * 0.18;
         c.setRGB(v, v, v);
       }
       m.userData._washed = true;
