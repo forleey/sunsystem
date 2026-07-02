@@ -107,6 +107,20 @@ void main(){
 }
 `;
 
+// screen-size-locked sun glare: hot core, warm halo, faint diffraction cross
+export const GLARE_F = /* glsl */`
+varying vec2 vUv;
+void main(){
+  float r = length(vUv);
+  float core = exp(-r*r*42.0)*1.7;
+  float halo = exp(-r*2.8)*0.5;
+  float spikes = (pow(max(0.0, 1.0-abs(vUv.x)), 30.0) + pow(max(0.0, 1.0-abs(vUv.y)), 30.0)) * exp(-r*2.2)*0.8;
+  float a = core + halo + spikes;
+  vec3 c = mix(vec3(1.0,0.68,0.34), vec3(1.0,0.98,0.93), clamp(core,0.0,1.0));
+  gl_FragColor = vec4(c*a, clamp(a,0.0,1.0));
+}
+`;
+
 export const PLANET_V = /* glsl */`
 varying vec3 vN; varying vec3 vP; varying vec3 vWp; varying vec2 vUv;
 void main(){

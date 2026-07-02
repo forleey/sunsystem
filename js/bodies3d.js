@@ -1,11 +1,11 @@
 // Meshes for sun, planets, trails, Andromeda. Positions set each frame relative to focus.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=35';
-import { ANDROMEDA } from './data.js?v=35';
+import { toRender } from './scene.js?v=36';
+import { ANDROMEDA } from './data.js?v=36';
 import {
-  SUN_V, SUN_F, CORONA_V, CORONA_F, PLANET_V, PLANET_F, PLANET_DEFS_PRE,
+  SUN_V, SUN_F, CORONA_V, CORONA_F, GLARE_F, PLANET_V, PLANET_F, PLANET_DEFS_PRE,
   ATMO_V, ATMO_F, RING_V, RING_F, GALAXY_V, GALAXY_F, logDepth,
-} from './shaders.js?v=35';
+} from './shaders.js?v=36';
 
 const TYPE_DEF = { rock: 'TYPE_ROCK', gas: 'TYPE_GAS', ice: 'TYPE_ICE', earth: 'TYPE_EARTH', venus: 'TYPE_VENUS', moon: 'TYPE_MOON' };
 
@@ -57,6 +57,22 @@ export class SystemView {
     const corona = new THREE.Mesh(new THREE.PlaneGeometry(sun.r * 5.6, sun.r * 5.6), this.coronaMat);
     corona.onBeforeRender = (r, s, cam) => corona.quaternion.copy(cam.quaternion);
     sunGrp.add(corona);
+    // self-luminous point source: a glare quad locked to ~5° apparent size so
+    // the sun dazzles from any distance (corona takes over when close);
+    // depth-tested, so planets can eclipse it
+    const glareMat = new THREE.ShaderMaterial({
+      ...logDepth(CORONA_V, GLARE_F),
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const glare = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glareMat);
+    const glareTmp = new THREE.Vector3();
+    glare.onBeforeRender = (r, s, cam) => {
+      glare.quaternion.copy(cam.quaternion);
+      const d = glare.getWorldPosition(glareTmp).distanceTo(cam.position);
+      const px = Math.max(d * 0.09, sun.r * 2.4) / (sunGrp.scale.x || 1);
+      glare.scale.set(px, px, 1);
+    };
+    sunGrp.add(glare);
     scene.add(sunGrp);
     // hot sun: the point light only drives standard materials (ships &
     // stations — planets shade themselves), so this cranks THEIR lit sides
