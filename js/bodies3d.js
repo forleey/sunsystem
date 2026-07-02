@@ -1,11 +1,11 @@
 // Meshes for sun, planets, trails, Andromeda. Positions set each frame relative to focus.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=34';
-import { ANDROMEDA } from './data.js?v=34';
+import { toRender } from './scene.js?v=35';
+import { ANDROMEDA } from './data.js?v=35';
 import {
   SUN_V, SUN_F, CORONA_V, CORONA_F, PLANET_V, PLANET_F, PLANET_DEFS_PRE,
   ATMO_V, ATMO_F, RING_V, RING_F, GALAXY_V, GALAXY_F, logDepth,
-} from './shaders.js?v=34';
+} from './shaders.js?v=35';
 
 const TYPE_DEF = { rock: 'TYPE_ROCK', gas: 'TYPE_GAS', ice: 'TYPE_ICE', earth: 'TYPE_EARTH', venus: 'TYPE_VENUS', moon: 'TYPE_MOON' };
 
@@ -58,11 +58,12 @@ export class SystemView {
     corona.onBeforeRender = (r, s, cam) => corona.quaternion.copy(cam.quaternion);
     sunGrp.add(corona);
     scene.add(sunGrp);
-    this.light = new THREE.PointLight(0xfff2dd, 2.2, 0, 0);
+    // hot sun: the point light only drives standard materials (ships &
+    // stations — planets shade themselves), so this cranks THEIR lit sides
+    this.light = new THREE.PointLight(0xfff2dd, 3.6, 0, 0);
     sunGrp.add(this.light);
-    // ambient matches the planet shaders' 0.012 residual: shadow sides of
-    // ships/stations drop to pitch black, only emissives survive the night
-    scene.add(new THREE.AmbientLight(0x32404f, 0.012));
+    // shadow floor ~zero: unlit sides read as pure silhouette
+    scene.add(new THREE.AmbientLight(0x32404f, 0.006));
     this.entries.push({ body: sun, grp: sunGrp, mesh: sunMesh, isSun: true, spin: 2.13e6 });
 
     for (const b of sim.bodies.slice(1)) this.addPlanet(b);

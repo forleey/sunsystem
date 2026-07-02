@@ -18,7 +18,7 @@ function hardenDirectLighting() {
   const chunk = THREE.ShaderChunk.lights_physical_pars_fragment;
   if (chunk.includes(key)) {
     THREE.ShaderChunk.lights_physical_pars_fragment = chunk.replace(key,
-      key + '\n\tdotNL = smoothstep( 0.0, 0.22, dotNL ) * ( 0.45 + 0.55 * dotNL );');
+      key + '\n\tdotNL = smoothstep( 0.0, 0.14, dotNL ) * ( 0.6 + 0.4 * dotNL );');
   } else {
     console.warn('hardenDirectLighting: chunk signature not found — soft shading stays');
   }
@@ -34,7 +34,7 @@ export function initEnvironment(renderer, scene) {
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     // barely-there IBL: just enough that full-metal PBR parts catch a glint,
     // while shadow sides stay pitch black like the planet shaders
-    scene.environmentIntensity = 0.02;
+    scene.environmentIntensity = 0.012;
     pmrem.dispose();
   }).catch(() => {});
 }
