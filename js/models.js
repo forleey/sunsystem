@@ -9,10 +9,26 @@ import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 
 export const ASSET_BASE = 'https://pub-71534651969246d597a0c1bf543eff8c.r2.dev';
 
+// Razor terminator for ships & stations: sharpen the diffuse N·L response of
+// every MeshStandardMaterial so lit faces snap to shadow in a ~13° band
+// instead of the soft cosine roll-off. Planets use custom shaders (untouched).
+// Must run before the first render (materials bake the chunk on compile).
+function hardenDirectLighting() {
+  const key = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
+  const chunk = THREE.ShaderChunk.lights_physical_pars_fragment;
+  if (chunk.includes(key)) {
+    THREE.ShaderChunk.lights_physical_pars_fragment = chunk.replace(key,
+      key + '\n\tdotNL = smoothstep( 0.0, 0.22, dotNL ) * ( 0.45 + 0.55 * dotNL );');
+  } else {
+    console.warn('hardenDirectLighting: chunk signature not found — soft shading stays');
+  }
+}
+
 // Neutral studio environment so metallic PBR models (NASA CAD exports ship
 // with metalness 1) reflect something instead of rendering black. Custom
 // planet/star shaders ignore scene.environment, so this only affects ships.
 export function initEnvironment(renderer, scene) {
+  hardenDirectLighting();
   import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
