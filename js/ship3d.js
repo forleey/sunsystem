@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=41';
-import { C_KMS } from './data.js?v=41';
-import { loadModel } from './models.js?v=41';
+import { toRender } from './scene.js?v=42';
+import { C_KMS } from './data.js?v=42';
+import { loadModel } from './models.js?v=42';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -86,24 +86,15 @@ export class ShipView {
     this.grp.add(lamp); this.lamp = lamp;   // on grp: survives the GLB swap
   }
 
-  // swap in the hero GLB; rebuild engine grilles at its stern so the
-  // throttle-glow loop in update() keeps working unchanged
+  // swap in the hero GLB; the throttle-glow loop in update() then drives the
+  // hull's own emissive map (engine ports + windows) instead of add-on discs
   _loadGLB() {
     loadModel('player.glb', { lengthKm: 0.19, yaw: Math.PI, blinkers: 0 }).then(m => {
       this.grp.remove(this.fallback);
       this.grp.add(m);
-      // additive glow discs sitting in the twin exhaust ports
-      const grilles = [];
-      for (const sx of [-1, 1]) {
-        const gr = new THREE.Mesh(new THREE.CircleGeometry(0.0065, 20), new THREE.MeshStandardMaterial({
-          color: 0x000000, emissive: 0x2fb8ff, emissiveIntensity: 0.9,
-          transparent: true, opacity: 0.95, depthWrite: false,
-          blending: THREE.AdditiveBlending, side: THREE.DoubleSide,
-        }));
-        gr.position.set(sx * 0.0125, 0.001, 0.0915);
-        m.add(gr); grilles.push(gr);
-      }
-      this.grilles = grilles;
+      const glows = [];
+      m.traverse(n => { if (n.isMesh && n.material && n.material.emissiveMap) glows.push(n); });
+      if (glows.length) this.grilles = glows;
       this.lamp.position.set(0, 0.0, 0.1);
     }).catch(() => {});   // primitives stay on failure
   }

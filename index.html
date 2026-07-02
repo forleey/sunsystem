@@ -105,10 +105,24 @@
       <input type="range" id="s-shipg" min="-1.301" max="2" step="0.01" value="0"></div>
     <div class="row"><label>Bloom <b id="v-bloom">0.15</b></label>
       <input type="range" id="s-bloom" min="0" max="2.5" step="0.05" value="0.15"></div>
+    <div class="row"><label>Exposure <b id="v-exposure">1.15</b></label>
+      <input type="range" id="s-exposure" min="0.5" max="2" step="0.05" value="1.15"></div>
+    <div class="row"><label>Contrast <b id="v-contrast">1.05</b></label>
+      <input type="range" id="s-contrast" min="0.9" max="1.35" step="0.005" value="1.045"></div>
+    <div class="row"><label>Saturation <b id="v-sat">1.07</b></label>
+      <input type="range" id="s-sat" min="0.4" max="1.6" step="0.01" value="1.07"></div>
+    <div class="row"><label>Film grain <b id="v-grain">1.00</b></label>
+      <input type="range" id="s-grain" min="0" max="2.5" step="0.05" value="1"></div>
+    <div class="row"><label>Vignette <b id="v-vig">1.00</b></label>
+      <input type="range" id="s-vig" min="0" max="2" step="0.05" value="1"></div>
     <label class="chk"><input type="checkbox" id="c-rel"> Relativistic limit (c)</label>
     <label class="chk"><input type="checkbox" id="c-trails" checked> Orbit trails</label>
     <label class="chk"><input type="checkbox" id="c-labels" checked> Labels</label>
     <label class="chk"><input type="checkbox" id="c-film" checked> Film look (grain, vignette)</label>
+    <div class="btnrow">
+      <button id="b-savelook">Save look as default</button>
+      <button id="b-resetlook">Reset look</button>
+    </div>
     <hr>
     <div class="row"><label>Music <b id="v-track">off</b></label>
       <div class="btnrow" style="margin-top:4px">
@@ -169,6 +183,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=41"></script>
+<script type="module" src="./js/main.js?v=42"></script>
 </body>
 </html>

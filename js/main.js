@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=41';
-import { Sim, V3 } from './physics.js?v=41';
-import { SystemView } from './bodies3d.js?v=41';
-import { ShipView } from './ship3d.js?v=41';
-import { UI } from './ui.js?v=41';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=41';
-import { Fleet } from './fleet.js?v=41';
-import { Music, renderTest } from './music.js?v=41';
-import { initEnvironment } from './models.js?v=41';
+import { createStage, makeSky } from './scene.js?v=42';
+import { Sim, V3 } from './physics.js?v=42';
+import { SystemView } from './bodies3d.js?v=42';
+import { ShipView } from './ship3d.js?v=42';
+import { UI } from './ui.js?v=42';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=42';
+import { Fleet } from './fleet.js?v=42';
+import { Music, renderTest } from './music.js?v=42';
+import { initEnvironment } from './models.js?v=42';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -345,10 +345,57 @@ function frameBody(now) {
   }
 }
 
-// film-look toggle (settings panel)
+// ---- visual look: adjustable and persistable as default (localStorage) ----
+const LOOK_KEY = 'sunsystem-look-v1';
+const LOOK_DEF = { bloom: 0.15, exposure: 1.15, contrast: 1.045, saturation: 1.07, grain: 1, vignette: 1, film: true };
+const look = { ...LOOK_DEF, ...(JSON.parse(localStorage.getItem(LOOK_KEY) || 'null') || {}) };
+const filmU = stage.film.material.uniforms;
+const LOOK_BIND = [
+  ['exposure', 's-exposure', 'v-exposure', v => { stage.renderer.toneMappingExposure = v; }],
+  ['contrast', 's-contrast', 'v-contrast', v => { filmU.uCon.value = v; }],
+  ['saturation', 's-sat', 'v-sat', v => { filmU.uSat.value = v; }],
+  ['grain', 's-grain', 'v-grain', v => { filmU.uGrain.value = v; }],
+  ['vignette', 's-vig', 'v-vig', v => { filmU.uVig.value = v; }],
+];
+function applyLookControl(key, sid, lid, apply) {
+  const s = document.getElementById(sid);
+  s.value = look[key];
+  document.getElementById(lid).textContent = (+look[key]).toFixed(2);
+  apply(look[key]);
+}
+for (const [key, sid, lid, apply] of LOOK_BIND) {
+  applyLookControl(key, sid, lid, apply);
+  document.getElementById(sid).addEventListener('input', e => {
+    look[key] = parseFloat(e.target.value);
+    document.getElementById(lid).textContent = look[key].toFixed(2);
+    apply(look[key]);
+  });
+}
 const filmChk = document.getElementById('c-film');
-stage.film.enabled = filmChk.checked;
-filmChk.addEventListener('change', () => { stage.film.enabled = filmChk.checked; filmChk.blur(); });
+filmChk.checked = look.film;
+stage.film.enabled = look.film;
+filmChk.addEventListener('change', () => { look.film = filmChk.checked; stage.film.enabled = look.film; filmChk.blur(); });
+// bloom lives in ui.state — seed it from the saved look, track user changes
+const sBloom = document.getElementById('s-bloom');
+sBloom.value = look.bloom;
+sBloom.dispatchEvent(new Event('input'));
+sBloom.addEventListener('input', () => { look.bloom = parseFloat(sBloom.value); });
+document.getElementById('b-savelook').addEventListener('click', e => {
+  localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+  ui.toast('Look saved — loads as default from now on');
+  e.target.blur();
+});
+document.getElementById('b-resetlook').addEventListener('click', e => {
+  localStorage.removeItem(LOOK_KEY);
+  Object.assign(look, LOOK_DEF);
+  for (const [key, sid, lid, apply] of LOOK_BIND) applyLookControl(key, sid, lid, apply);
+  sBloom.value = look.bloom;
+  sBloom.dispatchEvent(new Event('input'));
+  filmChk.checked = look.film;
+  stage.film.enabled = look.film;
+  ui.toast('Look reset to built-in defaults');
+  e.target.blur();
+});
 
 window.__dbg = { stage, sim, system, shipView, sky, fleet, music, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };
 console.log('sunsystem boot ok');
