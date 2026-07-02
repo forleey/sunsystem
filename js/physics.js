@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=44';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=46';
 
 const DEG = Math.PI / 180;
 
@@ -122,8 +122,8 @@ export class Sim {
 
   // beam the ship into a circular orbit around a body (R defaults to 3 radii).
   // side +1 parks on the sun-facing side (day side fills the view);
-  // side -1 parks off the night side, yawed ~26 deg past anti-solar so the
-  // city lights face you while the sun still peeks past the limb (boot view).
+  // side -1 parks off the terminator, ~108 deg from the sun vector: the
+  // planet shows a big lit crescent with city lights on the dark half.
   beamShipTo(name, R, side = 1) {
     const b = this.body(name), s = this.ship;
     if (!b) return false;
@@ -134,7 +134,7 @@ export class Sim {
     const rl = Math.hypot(rx, ry, rz);
     if (rl < 1) { rx = 1; ry = 0; rz = 0; } else { rx /= rl; ry /= rl; rz /= rl; }
     if (side < 0) {
-      const a = 0.45, c = Math.cos(a), sn = Math.sin(a);
+      const a = -1.25, c = Math.cos(a), sn = Math.sin(a);
       const nx = -(rx * c - ry * sn), ny = -(rx * sn + ry * c);
       rx = nx; ry = ny; rz = -rz;
     }
@@ -151,8 +151,8 @@ export class Sim {
   }
 
   resetShip() {
-    // cinematic default: night side of Earth from 60,000 km
-    this.beamShipTo('Earth', 60000, -1);
+    // cinematic default: big Earth crescent off the terminator, 25,000 km out
+    this.beamShipTo('Earth', 25000, -1);
   }
 
   // teleport the ship to an explicit state (used for beaming to stations/ships)
