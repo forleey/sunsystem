@@ -2,13 +2,13 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=37';
-import { G0 } from './data.js?v=37';
+import { toRender } from './scene.js?v=38';
+import { G0 } from './data.js?v=38';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=37';
-import { loadInto } from './models.js?v=37';
+} from './fleet_meshes.js?v=38';
+import { loadInto } from './models.js?v=38';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)

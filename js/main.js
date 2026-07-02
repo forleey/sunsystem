@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=37';
-import { Sim, V3 } from './physics.js?v=37';
-import { SystemView } from './bodies3d.js?v=37';
-import { ShipView } from './ship3d.js?v=37';
-import { UI } from './ui.js?v=37';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=37';
-import { Fleet } from './fleet.js?v=37';
-import { Music, renderTest } from './music.js?v=37';
-import { initEnvironment } from './models.js?v=37';
+import { createStage, makeSky } from './scene.js?v=38';
+import { Sim, V3 } from './physics.js?v=38';
+import { SystemView } from './bodies3d.js?v=38';
+import { ShipView } from './ship3d.js?v=38';
+import { UI } from './ui.js?v=38';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=38';
+import { Fleet } from './fleet.js?v=38';
+import { Music, renderTest } from './music.js?v=38';
+import { initEnvironment } from './models.js?v=38';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -40,7 +40,7 @@ const retV = new THREE.Vector3();
 // ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag.
 // wheel sets distance, vertical drag sets camera height (elevation angle)
 const chaseQuat = new THREE.Quaternion();
-let chaseDist = 1.15;
+let chaseDist = 0.6;
 let chaseEl = Math.atan2(0.32, 1);
 stage.renderer.domElement.addEventListener('wheel', e => {
   if (focusName !== 'Starship') return;
@@ -158,7 +158,7 @@ function applyFocus(name, announce = true) {
     dir = new THREE.Vector3(away.x, away.z, -away.y).normalize().lerp(new THREE.Vector3(0, 0.5, 0), 0.18).normalize();
   }
   if (!dir.lengthSq()) dir.set(0, 0.4, 1).normalize();
-  const dist = name === 'Andromeda' ? r * 2.4 : name === 'Starship' ? 1.1 : Math.max(r * 4.2, r + 1);
+  const dist = name === 'Andromeda' ? r * 2.4 : name === 'Starship' ? 0.6 : Math.max(r * 4.2, r + 1);
   stage.camera.position.copy(dir.multiplyScalar(dist));
   if (announce) ui.toast('Focus: ' + name, 1400);
 }
