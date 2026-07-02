@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=48';
-import { Sim, V3 } from './physics.js?v=48';
-import { SystemView } from './bodies3d.js?v=48';
-import { ShipView } from './ship3d.js?v=48';
-import { UI } from './ui.js?v=48';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=48';
-import { Fleet } from './fleet.js?v=48';
-import { Music, renderTest } from './music.js?v=48';
-import { initEnvironment } from './models.js?v=48';
+import { createStage, makeSky } from './scene.js?v=50';
+import { Sim, V3 } from './physics.js?v=50';
+import { SystemView } from './bodies3d.js?v=50';
+import { ShipView } from './ship3d.js?v=50';
+import { UI } from './ui.js?v=50';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=50';
+import { Fleet } from './fleet.js?v=50';
+import { Music, renderTest } from './music.js?v=50';
+import { initEnvironment } from './models.js?v=50';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
