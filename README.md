@@ -2,6 +2,17 @@
 
 A real-scale 3D solar system in the browser. Plain ES modules + Three.js (CDN import map), no build step.
 
+**Live:** https://sunsystem-auk.pages.dev
+
+## Deploy
+
+Cloudflare Pages is the only deploy target (GitHub hosts source only; GitHub Pages is disabled). Ship models and 8K textures are served from the Cloudflare R2 bucket `sunsystem-assets`.
+
+```bash
+rsync -a --delete --exclude '.git' --exclude 'models_src' --exclude '.wrangler' --exclude '.DS_Store' ./ /tmp/pages-deploy/
+npx wrangler pages deploy /tmp/pages-deploy --project-name sunsystem --branch main --commit-dirty=true
+```
+
 ## Run
 
 Any static file server, e.g.:
