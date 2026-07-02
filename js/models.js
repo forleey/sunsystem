@@ -16,7 +16,9 @@ export function initEnvironment(renderer, scene) {
   import('three/addons/environments/RoomEnvironment.js').then(({ RoomEnvironment }) => {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-    scene.environmentIntensity = 0.35;
+    // barely-there IBL: just enough that full-metal PBR parts catch a glint,
+    // while shadow sides stay near-black like the planet shaders
+    scene.environmentIntensity = 0.07;
     pmrem.dispose();
   }).catch(() => {});
 }
