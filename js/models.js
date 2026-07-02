@@ -159,17 +159,22 @@ export function loadModel(file, opts) {
   return fetchModel(`${ASSET_BASE}/models/${file}`).then(tpl => normalize(tpl, opts));
 }
 
-// Swap a GLB into `grp` when it arrives; until then the procedural fallback
-// (already inside grp) keeps flying. On success the fallback children are
-// removed and the blinker list is replaced.
+// Swap a GLB into `grp` when it arrives. The procedural fallback inside grp
+// stays HIDDEN until the load fails (or hangs >6 s) — no primitive flash.
 export function loadInto(grp, file, opts) {
+  grp.visible = false;
+  const reveal = setTimeout(() => { grp.visible = true; }, 6000);
   fetchModel(`${ASSET_BASE}/models/${file}`).then(tpl => {
     const model = normalize(tpl, opts);
     for (const c of [...grp.children]) grp.remove(c);
     grp.add(model);
     grp.userData.blinkers = model.userData.blinkers;
+    clearTimeout(reveal);
+    grp.visible = true;
     if (opts.onLoaded) opts.onLoaded(model);
   }).catch(err => {
+    clearTimeout(reveal);
+    grp.visible = true;
     console.warn('model fallback stays (load failed):', file, err && err.message);
   });
   return grp;

@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=43';
-import { C_KMS } from './data.js?v=43';
-import { loadModel } from './models.js?v=43';
+import { toRender } from './scene.js?v=44';
+import { C_KMS } from './data.js?v=44';
+import { loadModel } from './models.js?v=44';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -31,6 +31,7 @@ export class ShipView {
 
   buildMesh() {
     const g = new THREE.Group();          // procedural fallback, replaced by GLB
+    g.visible = false;                    // stays hidden unless the GLB fails — no old-ship flash
     this.grp.add(g);
     this.fallback = g;
     this._loadGLB();
@@ -89,14 +90,16 @@ export class ShipView {
   // swap in the hero GLB; the throttle-glow loop in update() then drives the
   // hull's own emissive map (engine ports + windows) instead of add-on discs
   _loadGLB() {
+    const reveal = setTimeout(() => { this.fallback.visible = true; }, 6000);   // stuck load
     loadModel('player.glb', { lengthKm: 0.19, yaw: Math.PI, blinkers: 0 }).then(m => {
+      clearTimeout(reveal);
       this.grp.remove(this.fallback);
       this.grp.add(m);
       const glows = [];
       m.traverse(n => { if (n.isMesh && n.material && n.material.emissiveMap) glows.push(n); });
       if (glows.length) this.grilles = glows;
       this.lamp.position.set(0, 0.0, 0.1);
-    }).catch(() => {});   // primitives stay on failure
+    }).catch(() => { clearTimeout(reveal); this.fallback.visible = true; });   // primitives on failure
   }
 
   // keys: Set of pressed key codes; shipG: slider value in g
