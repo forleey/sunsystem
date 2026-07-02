@@ -17,8 +17,8 @@ export function initEnvironment(renderer, scene) {
     const pmrem = new THREE.PMREMGenerator(renderer);
     scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
     // barely-there IBL: just enough that full-metal PBR parts catch a glint,
-    // while shadow sides stay near-black like the planet shaders
-    scene.environmentIntensity = 0.07;
+    // while shadow sides stay pitch black like the planet shaders
+    scene.environmentIntensity = 0.02;
     pmrem.dispose();
   }).catch(() => {});
 }
