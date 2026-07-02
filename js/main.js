@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=50';
-import { Sim, V3 } from './physics.js?v=50';
-import { SystemView } from './bodies3d.js?v=50';
-import { ShipView } from './ship3d.js?v=50';
-import { UI } from './ui.js?v=50';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=50';
-import { Fleet } from './fleet.js?v=50';
-import { Music, renderTest } from './music.js?v=50';
-import { initEnvironment } from './models.js?v=50';
+import { createStage, makeSky } from './scene.js?v=51';
+import { Sim, V3 } from './physics.js?v=51';
+import { SystemView } from './bodies3d.js?v=51';
+import { ShipView } from './ship3d.js?v=51';
+import { UI } from './ui.js?v=51';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=51';
+import { Fleet } from './fleet.js?v=51';
+import { Music, renderTest } from './music.js?v=51';
+import { initEnvironment } from './models.js?v=51';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -37,11 +37,22 @@ controls.maxDistance = 5.5e19;
 const reticleEl = document.getElementById('reticle');
 const retV = new THREE.Vector3();
 
-// arrival fly-in: after boot/beam the ship visually streaks in along its nose
-// and eases into position (render-only offset — physics is already parked)
-let arrivalK = 0;
-const ARRIVE_KM = 35;
-function startArrival() { arrivalK = 1; }
+// arrival fly-in: after boot/beam the ship glides in over the camera's
+// shoulder and eases into park over ~10 s (cubic ease-out, ends at exactly
+// zero — no snap). Render-only offset along a FROZEN approach line, so the
+// physics is already parked and the helm answers immediately mid-arrival.
+let arrivalT = -1;                 // -1 inactive, else 0..1
+const ARRIVE_KM = 4.5, ARRIVE_S = 10;
+const arrivalDir = new THREE.Vector3();
+const arrivalTmp = new THREE.Vector3();
+function startArrival() {
+  arrivalT = 0;
+  arrivalDir.set(0, 0, -1).applyQuaternion(shipView.quat).multiplyScalar(-1);   // behind the park point
+  arrivalTmp.set(0, 1, 0).applyQuaternion(shipView.quat);
+  arrivalDir.addScaledVector(arrivalTmp, 0.25);                                  // ... and above
+  arrivalTmp.set(1, 0, 0).applyQuaternion(shipView.quat);
+  arrivalDir.addScaledVector(arrivalTmp, 0.14).normalize();                      // ... and right
+}
 
 // ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag.
 // wheel sets distance, vertical drag sets camera height (elevation angle)
@@ -327,10 +338,13 @@ function frameBody(now) {
 
   focusPos(fPos);
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
-  if (arrivalK > 0) {
-    arrivalK *= Math.exp(-dtWall / 0.45);
-    if (arrivalK < 0.004) arrivalK = 0;
-    else shipView.grp.position.addScaledVector(shipView.fwd, -ARRIVE_KM * arrivalK);
+  if (arrivalT >= 0) {
+    arrivalT += dtWall / ARRIVE_S;
+    if (arrivalT >= 1) arrivalT = -1;                    // lands on exactly zero — no snap
+    else {
+      const k = (1 - arrivalT) ** 3;                     // cubic ease-out
+      shipView.grp.position.addScaledVector(arrivalDir, ARRIVE_KM * k);
+    }
   }
   system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
   fleet.place(fPos, sim.time, dtWall);
