@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=46';
-import { Sim, V3 } from './physics.js?v=46';
-import { SystemView } from './bodies3d.js?v=46';
-import { ShipView } from './ship3d.js?v=46';
-import { UI } from './ui.js?v=46';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=46';
-import { Fleet } from './fleet.js?v=46';
-import { Music, renderTest } from './music.js?v=46';
-import { initEnvironment } from './models.js?v=46';
+import { createStage, makeSky } from './scene.js?v=48';
+import { Sim, V3 } from './physics.js?v=48';
+import { SystemView } from './bodies3d.js?v=48';
+import { ShipView } from './ship3d.js?v=48';
+import { UI } from './ui.js?v=48';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=48';
+import { Fleet } from './fleet.js?v=48';
+import { Music, renderTest } from './music.js?v=48';
+import { initEnvironment } from './models.js?v=48';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -36,6 +36,12 @@ controls.maxDistance = 5.5e19;
 // flight reticle (ship view): marks where the nose points on screen
 const reticleEl = document.getElementById('reticle');
 const retV = new THREE.Vector3();
+
+// arrival fly-in: after boot/beam the ship visually streaks in along its nose
+// and eases into position (render-only offset — physics is already parked)
+let arrivalK = 0;
+const ARRIVE_KM = 35;
+function startArrival() { arrivalK = 1; }
 
 // ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag.
 // wheel sets distance, vertical drag sets camera height (elevation angle)
@@ -108,6 +114,7 @@ function bootAttitude(rollRad = -0.6) {
   chaseQuat.copy(shipView.quat);
 }
 bootAttitude();
+startArrival();   // boot opens with the fly-in
 
 let focusName = 'Earth';
 const ui = new UI(sim, (name, beam) => { if (beam) beamToName(name); else applyFocus(name); },
@@ -150,6 +157,7 @@ function beamToName(name) {
     aimShipAt(sim.body(name));
   } else return;
   applyFocus('Starship', false);
+  startArrival();
   ui.toast('Beamed to ' + name);
 }
 function applyFocus(name, announce = true) {
@@ -205,7 +213,7 @@ function startHomeJump() {
     accel: SHIP.jumpAccelG * G_ACC,
     arriveR: 4000, arriveV: 80,
     label: '→ EARTH · 100 000 g',
-    onDone: () => { sim.resetShip(); ui.setWarp(1); ui.toast('Back in Earth orbit'); },
+    onDone: () => { sim.resetShip(); bootAttitude(); ui.setWarp(1); startArrival(); ui.toast('Back in Earth orbit'); },
   };
   ui.toast('Autopilot engaged: return to Earth');
   applyFocus('Starship', false);
@@ -319,6 +327,11 @@ function frameBody(now) {
 
   focusPos(fPos);
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
+  if (arrivalK > 0) {
+    arrivalK *= Math.exp(-dtWall / 0.45);
+    if (arrivalK < 0.004) arrivalK = 0;
+    else shipView.grp.position.addScaledVector(shipView.fwd, -ARRIVE_KM * arrivalK);
+  }
   system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
   fleet.place(fPos, sim.time, dtWall);
 
@@ -406,6 +419,14 @@ document.getElementById('b-resetlook').addEventListener('click', e => {
   stage.film.enabled = look.film;
   ui.toast('Look reset to built-in defaults');
   e.target.blur();
+});
+
+// 'Ship -> Earth orbit' re-runs the full cinematic arrival (ui.js resets the
+// physics; we add attitude, focus and the fly-in on top)
+document.getElementById('b-ship').addEventListener('click', () => {
+  bootAttitude();
+  applyFocus('Starship', false);
+  startArrival();
 });
 
 window.__dbg = { stage, sim, system, shipView, sky, fleet, music, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };

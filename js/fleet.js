@@ -2,13 +2,14 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=46';
-import { G0 } from './data.js?v=46';
+import { toRender } from './scene.js?v=48';
+import { G0 } from './data.js?v=48';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=46';
-import { loadInto, whitewashObject } from './models.js?v=46';
+} from './fleet_meshes.js?v=48';
+import { loadInto, whitewashObject } from './models.js?v=48';
+import { applyGreebleShading } from './greeble.js?v=48';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
@@ -46,6 +47,10 @@ export class Fleet {
     this.addOrbiter('Cronos Station', cronos, B('Saturn'), 400000, 2.2, 0.40, 1190, 0.01);
     const k7 = buildSpacedock(THREE); k7.scale.setScalar(297);            // 8 km build -> 2376 km
     this.addOrbiter('Station K-7', k7, B('Sun'), 4.19e8, 2.6, 0.12, 1190, 0.012);
+    // megastructures get procedural hull detailing (panels, seams, window strips)
+    applyGreebleShading(jove);
+    applyGreebleShading(cronos);
+    applyGreebleShading(k7);
     this.addOrbiter('ISS', mkISS(), B('Earth'), 6791, 0.0, 0.90, 0.06, 0);
     // NASA Gateway (real CAD model) parked around the Moon
     this.addOrbiter('Lunar Gateway', loadInto(buildISS(THREE), 'gateway_station.glb', { lengthKm: 0.04, blinkers: 0 }),
