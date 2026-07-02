@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=36';
-import { Sim, V3 } from './physics.js?v=36';
-import { SystemView } from './bodies3d.js?v=36';
-import { ShipView } from './ship3d.js?v=36';
-import { UI } from './ui.js?v=36';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=36';
-import { Fleet } from './fleet.js?v=36';
-import { Music, renderTest } from './music.js?v=36';
-import { initEnvironment } from './models.js?v=36';
+import { createStage, makeSky } from './scene.js?v=37';
+import { Sim, V3 } from './physics.js?v=37';
+import { SystemView } from './bodies3d.js?v=37';
+import { ShipView } from './ship3d.js?v=37';
+import { UI } from './ui.js?v=37';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=37';
+import { Fleet } from './fleet.js?v=37';
+import { Music, renderTest } from './music.js?v=37';
+import { initEnvironment } from './models.js?v=37';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -32,6 +32,10 @@ const controls = new OrbitControls(stage.camera, stage.renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxDistance = 5.5e19;
+
+// flight reticle (ship view): marks where the nose points on screen
+const reticleEl = document.getElementById('reticle');
+const retV = new THREE.Vector3();
 
 // ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag.
 // wheel sets distance, vertical drag sets camera height (elevation angle)
@@ -325,6 +329,19 @@ function frameBody(now) {
   ui.updateHUD(hudExtra());
 
   stage.composer.render();
+
+  // flight reticle: project the nose direction onto the screen (ship view only)
+  if (focusName === 'Starship') {
+    retV.set(0, 0, -1).applyQuaternion(shipView.quat).multiplyScalar(1e7).add(shipView.grp.position);
+    retV.project(stage.camera);
+    if (retV.z < 1) {
+      reticleEl.style.display = 'block';
+      reticleEl.style.left = ((retV.x * 0.5 + 0.5) * innerWidth) + 'px';
+      reticleEl.style.top = ((-retV.y * 0.5 + 0.5) * innerHeight) + 'px';
+    } else reticleEl.style.display = 'none';
+  } else if (reticleEl.style.display !== 'none') {
+    reticleEl.style.display = 'none';
+  }
 }
 
 window.__dbg = { stage, sim, system, shipView, sky, fleet, music, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };

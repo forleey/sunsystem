@@ -76,11 +76,21 @@
   #toast{position:fixed; top:18px; left:50%; transform:translateX(-50%); background:var(--glass);
     border:1px solid var(--line); border-radius:9px; padding:9px 18px; color:var(--acc2);
     opacity:0; transition:opacity .4s; z-index:20; pointer-events:none; backdrop-filter:blur(10px);}
+
+  /* flight reticle: the ship's nose direction projected onto the screen */
+  #reticle{position:fixed; width:22px; height:22px; margin:-11px 0 0 -11px;
+    pointer-events:none; z-index:6; display:none; opacity:.55;}
+  #reticle i{position:absolute; background:var(--acc); box-shadow:0 0 3px rgba(0,0,0,.9);}
+  #reticle .h{height:1px; width:6px; top:50%;}
+  #reticle .l{left:0;} #reticle .r{right:0;}
+  #reticle .v{width:1px; height:6px; left:50%;}
+  #reticle .t{top:0;} #reticle .b{bottom:0;}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="labels"></div>
+<div id="reticle"><i class="h l"></i><i class="h r"></i><i class="v t"></i><i class="v b"></i></div>
 
 <div id="settings" class="panel">
   <h1>Physics & View <small id="collapse">[–]</small></h1>
@@ -158,6 +168,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=36"></script>
+<script type="module" src="./js/main.js?v=37"></script>
 </body>
 </html>
