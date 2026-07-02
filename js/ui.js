@@ -1,7 +1,7 @@
 // Sliders, HUD, body labels.
 import * as THREE from 'three';
-import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=30';
-import { toRender } from './scene.js?v=30';
+import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=31';
+import { toRender } from './scene.js?v=31';
 
 const $ = id => document.getElementById(id);
 

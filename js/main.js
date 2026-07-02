@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=30';
-import { Sim, V3 } from './physics.js?v=30';
-import { SystemView } from './bodies3d.js?v=30';
-import { ShipView } from './ship3d.js?v=30';
-import { UI } from './ui.js?v=30';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=30';
-import { Fleet } from './fleet.js?v=30';
-import { Music, renderTest } from './music.js?v=30';
-import { initEnvironment } from './models.js?v=30';
+import { createStage, makeSky } from './scene.js?v=31';
+import { Sim, V3 } from './physics.js?v=31';
+import { SystemView } from './bodies3d.js?v=31';
+import { ShipView } from './ship3d.js?v=31';
+import { UI } from './ui.js?v=31';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=31';
+import { Fleet } from './fleet.js?v=31';
+import { Music, renderTest } from './music.js?v=31';
+import { initEnvironment } from './models.js?v=31';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -45,8 +45,10 @@ stage.renderer.domElement.addEventListener('wheel', e => {
 // ship view mouse: hold LMB to steer — the mouse turns the nose DIRECTLY
 // (no rotational inertia: stop the mouse, the turn stops); RMB drag sets
 // camera height. Keyboard helm keeps its inertia model untouched.
+// Steering grabs pointer lock: the OS cursor is hidden and stays put, and
+// movementX/Y keeps steering past screen edges.
 let chaseDragY = null;
-let steerLast = null;
+let steering = false;
 const steerRot = new THREE.Quaternion();
 const steerAxis = new THREE.Vector3();
 stage.renderer.domElement.addEventListener('contextmenu', e => {
@@ -56,26 +58,29 @@ stage.renderer.domElement.addEventListener('pointerdown', e => {
   if (focusName !== 'Starship') return;
   if (e.button === 2) chaseDragY = e.clientY;
   else if (e.button === 0) {
-    steerLast = { x: e.clientX, y: e.clientY };
+    steering = true;
     shipView.angVel.set(0, 0, 0);          // kill any residual key-spin
+    const p = stage.renderer.domElement.requestPointerLock();
+    if (p && p.catch) p.catch(() => {});   // denied lock -> visible-cursor fallback
   }
 });
 window.addEventListener('pointermove', e => {
   if (focusName !== 'Starship') return;
-  if (steerLast) {
+  if (steering) {
     const K = 0.0035;                      // rad per px, applied immediately
-    const dx = e.clientX - steerLast.x, dy = e.clientY - steerLast.y;
-    steerRot.setFromAxisAngle(steerAxis.set(0, 1, 0), -dx * K);
+    steerRot.setFromAxisAngle(steerAxis.set(0, 1, 0), -e.movementX * K);
     shipView.quat.multiply(steerRot);
-    steerRot.setFromAxisAngle(steerAxis.set(1, 0, 0), -dy * K);
+    steerRot.setFromAxisAngle(steerAxis.set(1, 0, 0), -e.movementY * K);
     shipView.quat.multiply(steerRot);
-    steerLast = { x: e.clientX, y: e.clientY };
   } else if (chaseDragY !== null) {
     chaseEl = Math.min(1.35, Math.max(-0.45, chaseEl + (e.clientY - chaseDragY) * 0.004));
     chaseDragY = e.clientY;
   }
 });
-window.addEventListener('pointerup', () => { chaseDragY = null; steerLast = null; });
+window.addEventListener('pointerup', () => {
+  chaseDragY = null;
+  if (steering) { steering = false; document.exitPointerLock(); }
+});
 
 // point the ship's nose at a body (used at boot and after beaming)
 function aimShipAt(body) {

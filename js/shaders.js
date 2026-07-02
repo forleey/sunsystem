@@ -182,7 +182,7 @@ void main(){
   // Rayleigh-ish veil: a blue haze mutes the surface everywhere and thickens
   // toward the limb where the view path through air is longest (day side only)
   float grazing = 1.0 - clamp(abs(dot(n, vd)), 0.0, 1.0);
-  float haze = (0.22 + 0.68 * pow(max(grazing, 0.0), 1.6)) * day;
+  float haze = (0.12 + 0.78 * pow(max(grazing, 0.0), 1.8)) * day;
   col = mix(col, vec3(0.58, 0.73, 1.0), clamp(haze, 0.0, 0.9));
   spec *= 1.0 - haze * 0.45;
   float night = 1.0 - smoothstep(-0.2, 0.05, ndl);
