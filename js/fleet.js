@@ -2,15 +2,15 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=61';
-import { G0 } from './data.js?v=61';
+import { toRender } from './scene.js?v=62';
+import { G0 } from './data.js?v=62';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=61';
-import { loadInto, whitewashObject } from './models.js?v=61';
-import { applyGreebleShading } from './greeble.js?v=61';
-import { buildGreebleStation } from './megastation.js?v=61';
+} from './fleet_meshes.js?v=62';
+import { loadInto, whitewashObject } from './models.js?v=62';
+import { applyGreebleShading } from './greeble.js?v=62';
+import { buildGreebleStation } from './megastation.js?v=62';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
@@ -46,11 +46,10 @@ export class Fleet {
     this.addOrbiter('Jove Gateway', jove, B('Jupiter'), 450000, 0.4, 0.15, 1737, 0.008);
     const cronos = buildRingStation(THREE); cronos.scale.setScalar(594);  // 4 km build -> 2376 km
     this.addOrbiter('Cronos Station', cronos, B('Saturn'), 400000, 2.2, 0.40, 1190, 0.01);
-    // K-7: fully generative DARK megacity (own window/neon/traffic shaders),
-    // so it opts out of the white paint scheme + generic greeble below
+    // K-7: structured procedural city (polar grid + glowing road grid),
+    // whitewashed hull like the other stations — no window-shader lights
     const k7 = buildGreebleStation(THREE, { seed: 7 });
     k7.scale.setScalar(297);
-    k7.userData.noWash = true;
     this.addOrbiter('Station K-7', k7, B('Sun'), 4.19e8, 2.6, 0.12, 1190, 0.012);
     // other megastructures get procedural hull detailing (panels, seams, windows)
     applyGreebleShading(jove);

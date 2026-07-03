@@ -1,13 +1,21 @@
-// Generative FLOATING CLUSTER-CITY — a hanging island arcology in the spirit
-// of the reference: a dense vertical massif of clustered towers rising into
-// jagged spires up top, a lumpy rock core, and inverted stalactite spires
-// dripping below, wrapped in warm haze with scattered flying traffic.
+// Generative megastation — a structured city-in-space, built with the
+// canonical procedural-city pipeline (Parish/Müller: road network -> blocks
+// -> lots -> buildings) mapped onto a POLAR GRID for the disc:
 //
-// Not a flat disc: tower height + placement are driven by a PEAK NOISE FIELD
-// (several sharp gaussian peaks + fbm) so towers clump into mountain-like
-// clusters with canyons between them, tallest at a dominant central massif.
-// The window/depth shader (dense per-window random lights on near-black hull)
-// carries the city read. InstancedMesh throughout, seeded/reproducible.
+//   * Concentric ring roads + radial avenues whose count GROWS with radius,
+//     so cells stay roughly square (no pizza-slice distortion).
+//   * Each cell is a district block, subdivided into lots; every building is
+//     axis-aligned to the cell's local radial/tangential frame — never a
+//     random yaw. That alignment is what reads as "built" instead of "noise".
+//   * Height zoning: a downtown core of towers falling off toward a low
+//     industrial rim, with per-DISTRICT coherence (a whole cell is tall, low,
+//     or an open plaza) rather than per-building jitter, plus a few landmark
+//     super-towers. Podium + tower massing gives the setback silhouette.
+//   * Glowing road strips run along every ring road and avenue — the signature
+//     grid-of-light seen from orbit.
+//
+// All buildings are InstancedMesh boxes (~a dozen draw calls). Seeded, so the
+// same seed always yields the same city.
 
 function mulberry32(a) {
   return function () {
@@ -17,266 +25,206 @@ function mulberry32(a) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+// deterministic per-cell hash (spatial coherence: same cell -> same value)
 function hash2(i, j) {
-  let h = Math.imul((i | 0) + 1, 374761393) ^ Math.imul((j | 0) + 1, 668265263);
+  let h = Math.imul(i + 1, 374761393) ^ Math.imul(j + 1, 668265263);
   h = Math.imul(h ^ (h >>> 13), 1274126177);
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
-function vnoise(x, z) {
-  const xi = Math.floor(x), zi = Math.floor(z), xf = x - xi, zf = z - zi;
-  const u = xf * xf * (3 - 2 * xf), v = zf * zf * (3 - 2 * zf);
-  const a = hash2(xi, zi), b = hash2(xi + 1, zi), c = hash2(xi, zi + 1), d = hash2(xi + 1, zi + 1);
-  return a * (1 - u) * (1 - v) + b * u * (1 - v) + c * (1 - u) * v + d * u * v;
-}
 
-// procedural window / depth shader (dark hull, dense per-window random lights)
-function makeCityMaterial(THREE) {
-  const m = new THREE.MeshStandardMaterial({ color: 0x0b0a08, metalness: 0.45, roughness: 0.72 });
-  m.onBeforeCompile = sh => {
-    sh.vertexShader = sh.vertexShader
-      .replace('#include <common>', `#include <common>
-        varying vec3 vCityLocal; varying vec3 vCityN; varying float vCitySeed;`)
-      .replace('#include <begin_vertex>', `#include <begin_vertex>
-        #ifdef USE_INSTANCING
-          vec3 iS = vec3(length(instanceMatrix[0].xyz), length(instanceMatrix[1].xyz), length(instanceMatrix[2].xyz));
-          vCityLocal = position * iS;
-          vCitySeed = fract(sin(dot(instanceMatrix[3].xyz, vec3(12.9898,78.233,37.719))) * 43758.5453);
-        #else
-          vCityLocal = position; vCitySeed = 0.3;
-        #endif
-        vCityN = normal;`);
-    sh.fragmentShader = sh.fragmentShader
-      .replace('#include <common>', `#include <common>
-        varying vec3 vCityLocal; varying vec3 vCityN; varying float vCitySeed;
-        float ch21(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }`)
-      .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-      {
-        vec3 an = abs(normalize(vCityN));
-        if (an.y < 0.55) {
-          float wp = 0.013, fh = 0.009;
-          vec2 uv = (an.x > an.z) ? vec2(vCityLocal.z, vCityLocal.y) : vec2(vCityLocal.x, vCityLocal.y);
-          float faceOff = (an.x > an.z) ? 17.0 : 41.0;
-          vec2 g = vec2(uv.x / wp, uv.y / fh);
-          vec2 cell = floor(g), f = fract(g);
-          float win = step(0.16, f.x) * step(f.x, 0.84) * step(0.22, f.y) * step(f.y, 0.9);
-          float rndW = ch21(cell + vCitySeed * 53.0 + faceOff);
-          float floorLit = step(0.35, ch21(vec2(cell.y, vCitySeed * 91.0 + faceOff)));
-          float lit = step(0.42, rndW) * mix(0.5, 1.0, floorLit);
-          float chc = ch21(cell * 1.73 + vCitySeed * 13.0);
-          vec3 wc = chc < 0.62 ? vec3(1.0,0.83,0.55)
-                  : chc < 0.82 ? vec3(1.0,0.66,0.3)
-                  : chc < 0.94 ? vec3(0.55,0.8,1.0)
-                  :              vec3(1.0,0.4,0.7);
-          float bright = 0.35 + 0.65 * ch21(cell + 7.3);
-          totalEmissiveRadiance += wc * (lit * win * bright * 2.0);
-        } else {
-          vec2 rc = floor(vec2(vCityLocal.x, vCityLocal.z) / 0.02);
-          if (ch21(rc + vCitySeed * 5.0) > 0.985) totalEmissiveRadiance += vec3(1.0,0.2,0.12) * 2.0;
-        }
-        vec3 pc = abs(fract(vCityLocal / 0.05) - 0.5);
-        float seam = smoothstep(0.44, 0.5, max(max(pc.x, pc.y), pc.z));
-        diffuseColor.rgb *= 1.0 - seam * 0.5;
-      }`);
-  };
-  return m;
-}
-
-export function buildGreebleStation(THREE, { seed = 7, R = 2.6 } = {}) {
+export function buildGreebleStation(THREE, { seed = 7, R = 3.0, T = 0.9 } = {}) {
   const rnd = mulberry32(seed);
   const TAU = Math.PI * 2;
   const grp = new THREE.Group();
 
-  const ROCK = new THREE.MeshStandardMaterial({ color: 0x0a0806, metalness: 0.2, roughness: 0.98, flatShading: true });
-  const CITY = makeCityMaterial(THREE);
-  const LANEMAT = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
-  const NEON = new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false });
+  const HULL = new THREE.MeshStandardMaterial({ color: 0xc9ced7, metalness: 0.35, roughness: 0.55 });
+  const DARK = new THREE.MeshStandardMaterial({ color: 0x99a0ac, metalness: 0.4, roughness: 0.6 });
+  const ROAD = new THREE.MeshStandardMaterial({ color: 0x0a0c10, emissive: 0x8fd0ff, emissiveIntensity: 2.4 });
+  const WARM = new THREE.MeshStandardMaterial({ color: 0x0a0c10, emissive: 0xffcf85, emissiveIntensity: 2.0 });
 
-  // ---- peak field: a few sharp gaussian peaks + fbm -> clustered mountains ----
-  const domeH = R * 0.32;              // top surface dome height at center
-  const maxH = R * 1.7;                // tallest tower rise
-  const peaks = [{ x: 0, z: 0, amp: 1.0, sig: R * 0.28 }];
-  const nPeaks = 6;
-  for (let i = 0; i < nPeaks; i++) {
-    const a = rnd() * TAU, rr = R * (0.28 + rnd() * 0.5);
-    peaks.push({ x: Math.cos(a) * rr, z: Math.sin(a) * rr, amp: 0.5 + rnd() * 0.45, sig: R * (0.13 + rnd() * 0.12) });
-  }
-  function peakField(x, z) {
-    let pv = 0.14 * (vnoise(x / (R * 0.35) + 3, z / (R * 0.35) + 7) * 0.6 + vnoise(x / (R * 0.12), z / (R * 0.12)) * 0.4);
-    for (const p of peaks) {
-      const dx = x - p.x, dz = z - p.z, d2 = dx * dx + dz * dz;
-      pv = Math.max(pv, p.amp * Math.exp(-d2 / (2 * p.sig * p.sig)));
-    }
-    return Math.min(1, pv);
-  }
-  const topSurf = rho => domeH * Math.sqrt(Math.max(0, 1 - (rho / R) * (rho / R)));
-  // irregular, torn footprint edge
-  const footR = th => R * (0.72 + 0.26 * vnoise(Math.cos(th) * 2.3 + 11, Math.sin(th) * 2.3 + 5));
+  // ---- base hull: squashed saucer + rim + central mesa + spire ----
+  const surf = r => (T / 2) * Math.sqrt(Math.max(0, 1 - (r / R) * (r / R)));
+  const saucer = new THREE.Mesh(new THREE.SphereGeometry(R, 72, 30), HULL);
+  saucer.scale.set(1, (T / 2) / R, 1);
+  grp.add(saucer);
+  grp.add(new THREE.Mesh(new THREE.CylinderGeometry(R * 1.015, R * 1.015, T * 0.5, 80, 1, true), DARK));
 
-  // ---- lumpy rock core the city clings to ----
-  const coreGeo = new THREE.IcosahedronGeometry(R * 0.6, 4);
-  {
-    const p = coreGeo.attributes.position;
-    for (let i = 0; i < p.count; i++) {
-      let x = p.getX(i), y = p.getY(i), z = p.getZ(i);
-      const len = Math.hypot(x, y, z), nx = x / len, ny = y / len, nz = z / len;
-      const bump = 0.72 + 0.5 * vnoise(nx * 3 + 20, nz * 3 + 9) + 0.18 * vnoise(nx * 7, nz * 7);
-      let r = R * 0.6 * bump;
-      x = nx * r; z = nz * r;
-      y = ny * r * (ny > 0 ? 0.35 : 1.9);           // flat top (city embeds), long drippy bottom
-      // downward spikes on the underside
-      if (ny < -0.3) y -= R * 0.8 * Math.pow(-ny, 2.0) * vnoise(nx * 6 + 40, nz * 6 + 3);
-      p.setXYZ(i, x, y, z);
-    }
-    coreGeo.computeVertexNormals();
-  }
-  grp.add(new THREE.Mesh(coreGeo, ROCK));
+  // central mesa the downtown core sits on
+  const mesaR = R * 0.16, mesaH = R * 0.10;
+  const mesa = new THREE.Mesh(new THREE.CylinderGeometry(mesaR * 0.8, mesaR, mesaH, 32), DARK);
+  mesa.position.y = surf(0) + mesaH / 2;
+  grp.add(mesa);
+  const spireBaseY = surf(0) + mesaH;
+  const spire = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.03, R * 0.06, R * 0.7, 10), HULL);
+  spire.position.y = spireBaseY + R * 0.35;
+  grp.add(spire);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(R * 0.006, R * 0.006, R * 0.5, 6), DARK);
+  mast.position.y = spireBaseY + R * 0.9;
+  grp.add(mast);
 
   // ---- instanced pools ----
-  const NBOX = 20000, NANT = 400, NNEON = 700;
-  const boxes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), CITY, NBOX);
-  const ants = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 5), ROCK.clone(), NANT);
-  const neon = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), NEON, NNEON);
-  boxes.frustumCulled = ants.frustumCulled = neon.frustumCulled = false;
+  const NBOX = 9000, NANT = 240;
+  const boxes = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), HULL.clone(), NBOX);
+  const ants = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.5, 0.5, 1, 5), DARK.clone(), NANT);
+  const roads = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), ROAD, 1400);
+  boxes.frustumCulled = ants.frustumCulled = roads.frustumCulled = false;
+
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), eu = new THREE.Euler(),
-    scv = new THREE.Vector3(), pp = new THREE.Vector3(), col = new THREE.Color();
-  let bi = 0, ai = 0, ni = 0;
-  function putBox(x, y, z, sx, sy, sz, yaw) {
+    sc = new THREE.Vector3(), pp = new THREE.Vector3(), col = new THREE.Color();
+  let bi = 0, ai = 0, ri = 0;
+  function putBox(x, y, z, sx, sy, sz, yaw, shade) {
     if (bi >= NBOX) return;
-    m4.compose(pp.set(x, y, z), q.setFromEuler(eu.set(0, yaw, 0)), scv.set(sx, sy, sz));
-    boxes.setMatrixAt(bi++, m4);
+    m4.compose(pp.set(x, y, z), q.setFromEuler(eu.set(0, yaw, 0)), sc.set(sx, sy, sz));
+    boxes.setMatrixAt(bi, m4);
+    boxes.setColorAt(bi, col.setScalar(shade));
+    bi++;
   }
   function putAnt(x, y, z, r, h) {
     if (ai >= NANT) return;
-    m4.compose(pp.set(x, y + h / 2, z), q.identity(), scv.set(r, h, r));
-    ants.setMatrixAt(ai++, m4);
+    m4.compose(pp.set(x, y + h / 2, z), q.identity(), sc.set(r, h, r));
+    ants.setMatrixAt(ai, m4); ai++;
   }
-  const NEONCOL = [[1.0, 0.35, 0.1], [1.0, 0.7, 0.15], [0.3, 0.85, 1.0], [1.0, 0.2, 0.55]];
-  function putNeon(x, y, z, sx, sy, sz, yaw, c) {
-    if (ni >= NNEON) return;
-    m4.compose(pp.set(x, y, z), q.setFromEuler(eu.set(0, yaw, 0)), scv.set(sx, sy, sz));
-    neon.setMatrixAt(ni, m4); neon.setColorAt(ni, col.setRGB(c[0], c[1], c[2])); ni++;
+  function putRoad(x, y, z, sx, sy, sz, yaw) {
+    if (ri >= 1400) return;
+    m4.compose(pp.set(x, y, z), q.setFromEuler(eu.set(0, yaw, 0)), sc.set(sx, sy, sz));
+    roads.setMatrixAt(ri, m4); ri++;
   }
 
-  // ---- upper city: clustered towers on a jittered grid, height from peakField ----
-  const step = R * 0.052;
-  const gridYaw = rnd() * TAU;                       // one coherent block orientation
-  for (let gx = -R; gx <= R; gx += step) {
-    for (let gz = -R; gz <= R; gz += step) {
-      const jx = gx + (hash2(gx * 133, gz * 71) - 0.5) * step * 0.7;
-      const jz = gz + (hash2(gx * 51, gz * 219) - 0.5) * step * 0.7;
-      const rho = Math.hypot(jx, jz), th = Math.atan2(jz, jx);
-      if (rho > footR(th)) continue;
-      const pv = peakField(jx, jz);
-      // canyons / gaps: skip low-density and some random cells
-      if (pv < 0.12 && rnd() < 0.75) continue;
-      if (rnd() < 0.12) continue;
-      const baseY = topSurf(rho) * 0.5 - 0.06 * R;   // embed towers into the core -> one continuous mass
-      const h = maxH * (0.10 + pv * 0.95) * (0.5 + 0.55 * rnd());
-      const yaw = gridYaw + (rnd() - 0.5) * 0.25 + (hash2(Math.round(jx / (R * 0.3)), Math.round(jz / (R * 0.3))) - 0.5) * 0.6;
-      let fw = step * (0.55 + rnd() * 0.4), y = baseY;
-      const steps = 1 + Math.floor(pv * 3 + rnd() * 2);
-      let topY = y;
-      for (let k = 0; k < steps; k++) {
-        const segH = h / steps * (0.75 + rnd() * 0.4);
-        putBox(jx + (rnd() - 0.5) * fw * 0.15, y + segH / 2, jz + (rnd() - 0.5) * fw * 0.15,
-          fw, segH, fw * (0.75 + rnd() * 0.4), yaw);
-        y += segH; topY = y;
-        fw *= 0.7 + rnd() * 0.18;
-      }
-      // sharp needle tip on tall towers -> the jagged peaks
-      if (h > maxH * 0.5 && rnd() > 0.35) {
-        const tipH = h * (0.15 + rnd() * 0.3);
-        putBox(jx, topY + tipH / 2, jz, fw * 0.5, tipH, fw * 0.5, yaw);
-        putAnt(jx, topY + tipH, jz, 0.004 + rnd() * 0.005, 0.05 + rnd() * 0.2);
-        topY += tipH;
-      }
-      // neon billboard on prominent towers
-      if (h > maxH * 0.4 && rnd() > 0.7) {
-        const nc = NEONCOL[(hash2(gx * 7, gz * 3) * NEONCOL.length) | 0];
-        putNeon(jx + Math.cos(yaw) * fw * 0.6, baseY + h * (0.4 + rnd() * 0.4), jz + Math.sin(yaw) * fw * 0.6,
-          0.005, h * (0.1 + rnd() * 0.18), fw * (0.4 + rnd() * 0.5), yaw, nc);
+  // ring-road radii (fractions of R). Downtown starts at the mesa edge.
+  const ringR = [0.17, 0.31, 0.47, 0.64, 0.81, 0.955].map(f => f * R);
+  const CELL_W = 0.34 * R;          // target angular cell width -> spoke count
+  const LOT = 0.13 * R;             // target lot size -> lots per cell
+  const roadHalf = 0.018 * R;       // half street width (the canyon gap + light)
+
+  // per-ring zoning: tower height ceiling + district-type weights.
+  // inner = downtown towers, outer = low industrial fabric.
+  const zone = [
+    { h: 0.62, tall: 0.55, mid: 0.35, low: 0.08, plaza: 0.02 },
+    { h: 0.46, tall: 0.42, mid: 0.42, low: 0.12, plaza: 0.04 },
+    { h: 0.32, tall: 0.24, mid: 0.46, low: 0.24, plaza: 0.06 },
+    { h: 0.22, tall: 0.10, mid: 0.42, low: 0.40, plaza: 0.08 },
+    { h: 0.15, tall: 0.03, mid: 0.30, low: 0.57, plaza: 0.10 },
+  ];
+
+  // build one city layer on a saucer face (sign +1 top, -1 hanging under-city)
+  function cityLayer(sign, density, heightMul) {
+    for (let ring = 0; ring < ringR.length - 1; ring++) {
+      const rIn = ringR[ring], rOut = ringR[ring + 1];
+      const rMid = (rIn + rOut) / 2;
+      const spokes = Math.max(6, Math.round(TAU * rMid / CELL_W));
+      const z = zone[ring];
+      for (let s = 0; s < spokes; s++) {
+        const th0 = (s / spokes) * TAU, th1 = ((s + 1) / spokes) * TAU;
+        // district type for this whole cell (spatial coherence)
+        const dh = hash2(ring * 97 + (sign > 0 ? 0 : 1000), s);
+        let type; // 'tall' | 'mid' | 'low' | 'plaza'
+        let a = dh;
+        if ((a -= z.tall) < 0) type = 'tall';
+        else if ((a -= z.mid) < 0) type = 'mid';
+        else if ((a -= z.low) < 0) type = 'low';
+        else type = 'plaza';
+        if (rnd() > density) continue;                 // under-city is sparser
+
+        // subdivide the cell into a lot grid (tangential x radial)
+        const arc = rMid * (th1 - th0);
+        const nT = Math.max(1, Math.round((arc - 2 * roadHalf) / LOT));
+        const nR = Math.max(1, Math.round((rOut - rIn - 2 * roadHalf) / LOT));
+        const isLandmark = type === 'tall' && ring <= 1 && hash2(s, ring + 313) > 0.86;
+
+        for (let lt = 0; lt < nT; lt++) {
+          for (let lr = 0; lr < nR; lr++) {
+            const th = th0 + (lt + 0.5) / nT * (th1 - th0);
+            const rr = rIn + roadHalf + (lr + 0.5) / nR * (rOut - rIn - 2 * roadHalf);
+            const x = Math.cos(th) * rr, zc = Math.sin(th) * rr;
+            const base = sign * surf(rr);
+            const yaw = -th;                            // local X = radial, Z = tangential
+            const wT = (th1 - th0) / nT * rr * 0.82;    // lot tangential span (with street gap)
+            const wR = (rOut - rIn - 2 * roadHalf) / nR * 0.82;
+            const foot = Math.min(wT, wR);
+
+            if (type === 'plaza') {
+              // low deck + a couple of rooftop units — open space
+              putBox(x, base + sign * 0.012 * R, zc, wR, 0.024 * R, wT, yaw, 0.62 + rnd() * 0.1);
+              continue;
+            }
+            // podium fills the lot
+            const podH = (0.03 + rnd() * 0.03) * R;
+            putBox(x, base + sign * podH / 2, zc, wR, podH, wT, yaw, 0.7 + rnd() * 0.14);
+
+            // tower(s) on top, aligned to the lot, stepped back
+            let towH = z.h * heightMul * (0.45 + rnd() * 0.55) * R;
+            if (type === 'low') towH *= 0.4;
+            if (type === 'mid') towH *= 0.72;
+            if (isLandmark && lt === (nT >> 1) && lr === (nR >> 1)) towH *= 2.4;
+            let fw = foot * (0.5 + rnd() * 0.28), y = base + sign * podH;
+            const steps = type === 'tall' ? 2 + Math.floor(rnd() * 2) : 1;
+            for (let k = 0; k < steps; k++) {
+              const segH = towH / steps * (0.8 + rnd() * 0.3);
+              putBox(x, y + sign * segH / 2, zc, fw, segH, fw * (0.8 + rnd() * 0.3), yaw, 0.78 + rnd() * 0.2);
+              y += sign * segH;
+              fw *= 0.66 + rnd() * 0.16;               // setback
+            }
+            // rooftop antenna on the tallest downtown towers
+            if (sign > 0 && towH > 0.4 * R && rnd() > 0.5) putAnt(x, y, zc, 0.005 + rnd() * 0.006, 0.06 + rnd() * 0.22);
+          }
+        }
       }
     }
   }
+  cityLayer(1, 1.0, 1.0);        // top city, full
+  cityLayer(-1, 0.55, 0.6);      // hanging under-city, sparser + shorter
 
-  // ---- hanging stalactite spires below (longest near the peaks/centre) ----
-  for (let i = 0; i < 900; i++) {
-    const th = rnd() * TAU, rho = footR(th) * Math.sqrt(rnd()) * 0.92;
-    const x = Math.cos(th) * rho, z = Math.sin(th) * rho;
-    const pv = peakField(x, z);
-    if (rnd() > 0.35 + pv * 0.5) continue;
-    const underY = -topSurf(rho) * 0.5 - R * 0.1;
-    const drop = maxH * (0.25 + pv * 1.1) * (0.5 + 0.6 * rnd()) * (1 - rho / R * 0.5);
-    const yaw = gridYaw + (rnd() - 0.5) * 0.5;
-    let fw = step * (0.5 + rnd() * 0.5), y = underY;
-    const steps = 2 + Math.floor(rnd() * 4);
+  // ---- road light grid: ring roads + radial avenues (top face) ----
+  for (let ring = 0; ring < ringR.length; ring++) {
+    const rr = ringR[ring], y = surf(rr) + 0.006 * R;
+    const seg = Math.max(48, Math.round(TAU * rr / (0.06 * R)));
+    for (let s = 0; s < seg; s++) {
+      const th = (s / seg) * TAU;
+      putRoad(Math.cos(th) * rr, y, Math.sin(th) * rr,
+        0.008 * R, 0.006 * R, (TAU * rr / seg) * 0.9, -th);
+    }
+  }
+  const avenues = 24;
+  for (let a = 0; a < avenues; a++) {
+    const th = (a / avenues) * TAU, c = Math.cos(th), s = Math.sin(th);
+    const steps = 20;
     for (let k = 0; k < steps; k++) {
-      const segH = drop / steps * (0.8 + rnd() * 0.4);
-      putBox(x, y - segH / 2, z, fw, segH, fw * (0.8 + rnd() * 0.3), yaw);
-      y -= segH; fw *= 0.6 + rnd() * 0.18;            // taper to a point
+      const rr = ringR[0] + (k + 0.5) / steps * (ringR[ringR.length - 1] - ringR[0]);
+      putRoad(c * rr, surf(rr) + 0.006 * R, s * rr,
+        0.9 * (ringR[ringR.length - 1] - ringR[0]) / steps, 0.006 * R, 0.008 * R, -th);
     }
   }
 
-  boxes.count = bi; ants.count = ai; neon.count = ni;
-  for (const im of [boxes, ants, neon]) im.instanceMatrix.needsUpdate = true;
-  if (neon.instanceColor) neon.instanceColor.needsUpdate = true;
-  grp.add(boxes, ants, neon);
-
-  // ---- scattered flying traffic: individual craft on their own drift arcs.
-  // Two fixed HDR-colour pools (warm headlights / cool tails) so they bloom
-  // reliably — no dependence on per-instance instanceColor. ----
-  const NCRAFT = 240, NWARM = NCRAFT >> 1, NCOOL = NCRAFT - NWARM;
-  const warmMat = new THREE.MeshBasicMaterial({ toneMapped: false });
-  warmMat.color.setRGB(1.5, 0.85, 0.4);
-  const coolMat = new THREE.MeshBasicMaterial({ toneMapped: false });
-  coolMat.color.setRGB(0.5, 0.9, 1.5);
-  const warmCraft = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), warmMat, NWARM);
-  const coolCraft = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), coolMat, NCOOL);
-  warmCraft.frustumCulled = coolCraft.frustumCulled = false;
-  const craft = [];
-  for (let i = 0; i < NCRAFT; i++) {
-    const a0 = rnd() * TAU, rad = R * (0.55 + rnd() * 0.9), hy = (rnd() - 0.4) * R * 1.5;
-    const cx = (rnd() - 0.5) * R * 0.3, cz = (rnd() - 0.5) * R * 0.3;
-    craft.push({ cx, cz, hy, rad, a0, spd: 0.02 + rnd() * 0.06, dir: rnd() > 0.5 ? 1 : -1,
-      bob: R * (0.02 + rnd() * 0.06), sz: R * (0.008 + rnd() * 0.012),
-      mesh: i < NWARM ? warmCraft : coolCraft, mi: i < NWARM ? i : i - NWARM });
+  // ---- rim machinery (aligned to the rim, radial docking pylons) ----
+  for (let i = 0; i < 96; i++) {
+    const th = (i / 96) * TAU + (hash2(i, 7) - 0.5) * 0.02;
+    const rr = R * 1.0;
+    const h = (0.05 + hash2(i, 11) * 0.14) * R;
+    putBox(Math.cos(th) * (rr + h / 2), (hash2(i, 13) - 0.5) * T * 0.5, Math.sin(th) * (rr + h / 2),
+      h, (0.04 + hash2(i, 17) * 0.1) * R, (0.03 + hash2(i, 19) * 0.06) * R, -th, 0.6 + hash2(i, 23) * 0.25);
   }
-  grp.add(warmCraft, coolCraft);
-  const tm = new THREE.Matrix4(), tq = new THREE.Quaternion(), te = new THREE.Euler(), tp = new THREE.Vector3(), tsz = new THREE.Vector3();
-  grp.userData.animate = (t) => {
-    for (let i = 0; i < NCRAFT; i++) {
-      const c = craft[i], a = c.a0 + c.dir * c.spd * t;
-      const x = c.cx + Math.cos(a) * c.rad, z = c.cz + Math.sin(a) * c.rad;
-      const y = c.hy + Math.sin(a * 2.0 + i) * c.bob;
-      tm.compose(tp.set(x, y, z), tq.setFromEuler(te.set(0, a + Math.PI / 2, 0)), tsz.set(c.sz * 3.0, c.sz * 0.5, c.sz * 0.5));
-      c.mesh.setMatrixAt(c.mi, tm);
-    }
-    warmCraft.instanceMatrix.needsUpdate = true;
-    coolCraft.instanceMatrix.needsUpdate = true;
-  };
-  grp.userData.animate(0);
 
-  // ---- warm haze glow enveloping the city ----
-  const hazeMat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.BackSide,
-    uniforms: { uColor: { value: new THREE.Color(0x6a4326) } },
-    vertexShader: `varying vec3 vN; varying vec3 vP;
-      void main(){ vN = normalize(normalMatrix * normal); vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
-    fragmentShader: `varying vec3 vN; varying vec3 vP; uniform vec3 uColor;
-      void main(){
-        float rim = pow(1.0 - abs(vN.z), 1.8);
-        float band = exp(-abs(vP.y) / ${(R * 0.9).toFixed(3)});   // densest around the city mid-band
-        gl_FragColor = vec4(uColor * rim * (0.3 + band * 0.7), rim * 0.55);
-      }`,
-  });
-  const haze = new THREE.Mesh(new THREE.SphereGeometry(R * 1.7, 32, 24), hazeMat);
-  haze.scale.set(1, 1.15, 1);
-  grp.add(haze);
+  // ---- spire greeble: broken silhouette instead of a clean cone ----
+  for (let i = 0; i < 220; i++) {
+    const hFrac = rnd();
+    const y = spireBaseY + hFrac * R * 0.68;
+    const rr = R * (0.065 - hFrac * 0.035) * (0.8 + rnd() * 0.6);
+    const th = rnd() * TAU;
+    const s = (0.008 + rnd() * 0.04 * (1 - hFrac * 0.6)) * R;
+    putBox(Math.cos(th) * rr, y, Math.sin(th) * rr, s * (0.6 + rnd()), s * (0.7 + rnd() * 2.2), s * (0.6 + rnd()), -th, 0.78 + rnd() * 0.22);
+  }
+
+  boxes.count = bi; ants.count = ai; roads.count = ri;
+  boxes.instanceMatrix.needsUpdate = true;
+  ants.instanceMatrix.needsUpdate = true;
+  roads.instanceMatrix.needsUpdate = true;
+  if (boxes.instanceColor) boxes.instanceColor.needsUpdate = true;
+  grp.add(boxes, ants, roads);
 
   // nav blinkers for fleet.place()
   grp.userData.blinkers = [];
-  const topPeakY = topSurf(0) + maxH * 1.15;
-  const BL = [[R * 0.9, 0, 0, 0xff5544], [-R * 0.9, 0, 0, 0x44ff77], [0, topPeakY, 0, 0xffffff], [0, -maxH * 0.9, 0, 0xffaa44]];
+  const topY = spireBaseY + R * 0.95;
+  const BL = [[R * 1.05, 0, 0, 0xff5544], [-R * 1.05, 0, 0, 0x44ff77], [0, topY, 0, 0xffffff], [0, -surf(0) - R * 0.3, 0, 0xffffff]];
   for (const [x, y, z, c] of BL) {
     const b = new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6),
       new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.5 }));
