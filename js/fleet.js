@@ -2,23 +2,23 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=53';
-import { G0 } from './data.js?v=53';
+import { toRender } from './scene.js?v=55';
+import { G0 } from './data.js?v=55';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=53';
-import { loadInto, whitewashObject } from './models.js?v=53';
-import { applyGreebleShading } from './greeble.js?v=53';
-import { buildGreebleStation } from './megastation.js?v=53';
+} from './fleet_meshes.js?v=55';
+import { loadInto, whitewashObject } from './models.js?v=55';
+import { applyGreebleShading } from './greeble.js?v=55';
+import { buildGreebleStation } from './megastation.js?v=55';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
 const mkISS = () => loadInto(buildISS(THREE), 'iss.glb', { lengthKm: 0.109, blinkers: 0 });
-const mkFreighter = () => loadInto(buildFreighter(THREE), 'freighter.glb', { lengthKm: 0.5, yaw: 0, blinkers: 3 });
-const mkWarship = () => loadInto(buildWarship(THREE), 'warship.glb', { lengthKm: 0.35, yaw: Math.PI, blinkers: 3 });
-const mkScout = () => loadInto(buildScout(THREE), 'scout.glb', { lengthKm: 0.12, yaw: Math.PI, blinkers: 2 });
-const mkHauler = () => loadInto(buildFreighter(THREE), 'hauler.glb', { lengthKm: 0.55, yaw: 0, blinkers: 3 });
+const mkFreighter = () => loadInto(buildFreighter(THREE), 'freighter.glb', { lengthKm: 0.24, yaw: 0, blinkers: 3 });
+const mkWarship = () => loadInto(buildWarship(THREE), 'warship.glb', { lengthKm: 0.16, yaw: Math.PI, blinkers: 3 });
+const mkScout = () => loadInto(buildScout(THREE), 'scout.glb', { lengthKm: 0.06, yaw: Math.PI, blinkers: 2 });
+const mkHauler = () => loadInto(buildFreighter(THREE), 'hauler.glb', { lengthKm: 0.28, yaw: 0, blinkers: 3 });
 // Smithsonian Discovery scan comes in launch pose: nose -Y, belly -Z
 const mkShuttle = () => loadInto(buildScout(THREE), 'shuttle.glb', { lengthKm: 0.037, pitch: Math.PI / 2, roll: Math.PI, blinkers: 0 });
 

@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=53';
-import { Sim, V3 } from './physics.js?v=53';
-import { SystemView } from './bodies3d.js?v=53';
-import { ShipView } from './ship3d.js?v=53';
-import { UI } from './ui.js?v=53';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=53';
-import { Fleet } from './fleet.js?v=53';
-import { Music, renderTest } from './music.js?v=53';
-import { initEnvironment } from './models.js?v=53';
+import { createStage, makeSky } from './scene.js?v=55';
+import { Sim, V3 } from './physics.js?v=55';
+import { SystemView } from './bodies3d.js?v=55';
+import { ShipView } from './ship3d.js?v=55';
+import { UI } from './ui.js?v=55';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=55';
+import { Fleet } from './fleet.js?v=55';
+import { Music, renderTest } from './music.js?v=55';
+import { initEnvironment } from './models.js?v=55';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -57,13 +57,13 @@ function startArrival() {
 // ship view = 3rd-person chase cam behind the hull; follows orientation with a soft lag.
 // wheel sets distance, vertical drag sets camera height (elevation angle)
 const chaseQuat = new THREE.Quaternion();
-let chaseDist = 0.5;               // boot at the closest zoom stop
+let chaseDist = 0.28;              // boot at the closest zoom stop
 let chaseEl = Math.atan2(0.32, 1);
 stage.renderer.domElement.addEventListener('wheel', e => {
   if (focusName !== 'Starship') return;
-  // tight zoom range: closest stop stays, zooming out caps at ~+50% of the
-  // default so the ship always fills a good chunk of the viewport
-  chaseDist = Math.min(0.9, Math.max(0.5, chaseDist * Math.exp(e.deltaY * 0.001)));
+  // tight zoom range (scaled to the 110 m hull): closest stop stays, zooming
+  // out caps at ~+80% so the ship always fills a good chunk of the viewport
+  chaseDist = Math.min(0.5, Math.max(0.28, chaseDist * Math.exp(e.deltaY * 0.001)));
 }, { passive: true });
 // ship view mouse: hold LMB to steer — the mouse turns the nose DIRECTLY
 // (no rotational inertia: stop the mouse, the turn stops); RMB drag sets
@@ -134,7 +134,7 @@ const ui = new UI(sim, (name, beam) => { if (beam) beamToName(name); else applyF
   fleet.objects.map(o => o.name));
 
 function focusRadiusKm() {
-  if (focusName === 'Starship') return 0.35;
+  if (focusName === 'Starship') return 0.2;
   if (focusName === 'Andromeda') return ANDROMEDA.radius;
   const fo = fleet.byName.get(focusName);
   if (fo) return fo.radiusKm;
@@ -159,7 +159,7 @@ function beamToName(name) {
     const sun = sim.bodies[0];
     let dx = sun.pos.x - fo.pos.x, dy = sun.pos.y - fo.pos.y, dz = sun.pos.z - fo.pos.z;
     const dl = Math.hypot(dx, dy, dz) || 1;
-    const standoff = Math.max(fo.radiusKm * 3, 1.5);
+    const standoff = Math.max(fo.radiusKm * 3, 0.8);
     sim.placeShip(
       fo.pos.x + (dx / dl) * standoff, fo.pos.y + (dy / dl) * standoff, fo.pos.z + (dz / dl) * standoff,
       fleetVel.x, fleetVel.y, fleetVel.z
@@ -190,7 +190,7 @@ function applyFocus(name, announce = true) {
     dir = new THREE.Vector3(away.x, away.z, -away.y).normalize().lerp(new THREE.Vector3(0, 0.5, 0), 0.18).normalize();
   }
   if (!dir.lengthSq()) dir.set(0, 0.4, 1).normalize();
-  const dist = name === 'Andromeda' ? r * 2.4 : name === 'Starship' ? 0.5 : Math.max(r * 4.2, r + 1);
+  const dist = name === 'Andromeda' ? r * 2.4 : name === 'Starship' ? 0.28 : Math.max(r * 4.2, r + 1);
   stage.camera.position.copy(dir.multiplyScalar(dist));
   if (announce) ui.toast('Focus: ' + name, 1400);
 }
