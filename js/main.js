@@ -1,14 +1,14 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=67';
-import { Sim, V3 } from './physics.js?v=67';
-import { SystemView } from './bodies3d.js?v=67';
-import { ShipView } from './ship3d.js?v=67';
-import { UI } from './ui.js?v=67';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=67';
-import { Fleet } from './fleet.js?v=67';
-import { Music, renderTest } from './music.js?v=67';
-import { initEnvironment } from './models.js?v=67';
+import { createStage, makeSky } from './scene.js?v=68';
+import { Sim, V3 } from './physics.js?v=68';
+import { SystemView } from './bodies3d.js?v=68';
+import { ShipView } from './ship3d.js?v=68';
+import { UI } from './ui.js?v=68';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=68';
+import { Fleet } from './fleet.js?v=68';
+import { Music, renderTest } from './music.js?v=68';
+import { initEnvironment } from './models.js?v=68';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -115,13 +115,13 @@ function aimShipAt(body) {
   shipView.quat.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
   chaseQuat.copy(shipView.quat);
 }
-// boot attitude: nose on the bisector between sun and Earth so the crescent
-// rides top-right and the sun glares bottom-left, with a cinematic bank
+// boot attitude: nose on an Earth-weighted blend between sun and Earth, so
+// more of the globe rides top-right while the sun still glares bottom-left
 function bootAttitude(rollRad = -0.6) {
   const e = sim.body('Earth'), sun = sim.bodies[0], sp = sim.ship.pos;
   const S = new THREE.Vector3(sun.pos.x - sp.x, sun.pos.z - sp.z, -(sun.pos.y - sp.y)).normalize();
   const E = new THREE.Vector3(e.pos.x - sp.x, e.pos.z - sp.z, -(e.pos.y - sp.y)).normalize();
-  const dir = S.add(E).normalize();
+  const dir = S.multiplyScalar(0.36).add(E.multiplyScalar(0.64)).normalize();
   shipView.quat.setFromUnitVectors(new THREE.Vector3(0, 0, -1), dir);
   shipView.quat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rollRad));
   chaseQuat.copy(shipView.quat);
