@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sol System — N-Body Simulator</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=66">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=67">
 <meta name="theme-color" content="#02040a">
 <style>
   :root{
@@ -28,8 +28,24 @@
     box-shadow:0 8px 40px rgba(0,0,0,.5);
   }
   #settings{top:14px; right:14px; width:300px; max-height:calc(100% - 28px); overflow:auto;}
-  #settings h1{font-size:13px; letter-spacing:.18em; color:var(--acc); text-transform:uppercase; margin-bottom:10px;}
-  #settings h1 small{float:right; color:var(--dim); letter-spacing:0; cursor:pointer; user-select:none;}
+  #settings.closed{width:auto;}
+
+  /* fold-up panel headers: title left, state icon right, whole line clickable
+     (collapsed: the entire chip is the button). Height animates via the
+     grid-rows trick, the width via a JS FLIP tween. */
+  .panel h1{font-size:12px; letter-spacing:.18em; color:var(--acc); text-transform:uppercase;
+    display:flex; align-items:baseline; justify-content:space-between; gap:26px;
+    margin-bottom:12px; cursor:pointer; user-select:none; white-space:nowrap;
+    transition:margin-bottom .28s ease;}
+  .panel h1 .tgl{color:var(--dim); letter-spacing:.05em; font-size:11px;}
+  .panel h1:hover .tgl, .panel.closed:hover .tgl{color:var(--acc);}
+  .panel.closed{cursor:pointer;}
+  .panel.closed h1{margin-bottom:0;}
+  .fold{display:grid; grid-template-rows:1fr; opacity:1;
+    transition:grid-template-rows .28s ease, opacity .2s ease .08s;}
+  .fold > .foldin{overflow:hidden; min-height:0;}
+  .panel.closed .fold{grid-template-rows:0fr; opacity:0;
+    transition:grid-template-rows .28s ease, opacity .16s ease;}
   .row{margin:9px 0;}
   .row label{display:flex; justify-content:space-between; color:var(--dim); margin-bottom:3px;}
   .row label b{color:var(--txt); font-weight:500;}
@@ -48,21 +64,18 @@
   select{width:100%;}
   hr{border:none; border-top:1px solid var(--line); margin:12px 0;}
 
-  #hud{left:14px; bottom:14px; min-width:330px; pointer-events:none;}
+  #hud{left:14px; bottom:14px; pointer-events:none; padding:10px 16px;}
   #hud .v{color:var(--acc);}
   #hud .w{color:var(--acc2);}
-  #hud table{border-collapse:collapse;}
-  #hud td{padding:1px 12px 1px 0; white-space:nowrap;}
-  #hud td:first-child{color:var(--dim);}
+  #hudrow{display:flex; align-items:baseline; gap:20px; white-space:nowrap;}
+  #hudrow em{font-style:normal; color:var(--dim); margin-right:7px;}
   #ap{margin-top:6px; color:var(--acc2); display:none;}
   #ap .bar{height:4px; background:#27374a; border-radius:2px; margin-top:4px; overflow:hidden;}
   #ap .bar i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--acc),var(--acc2));}
 
   #help{left:14px; top:14px; max-width:330px;}
-  #help h1{font-size:12px; letter-spacing:.18em; color:var(--acc); margin-bottom:8px;}
   #help td{padding:1px 10px 1px 0; color:var(--dim);}
   #help td:first-child{color:var(--txt);}
-  #help .toggle{position:absolute; top:10px; right:12px; color:var(--dim); cursor:pointer;}
 
   #labels{position:fixed; inset:0; overflow:hidden; pointer-events:none; z-index:5;}
   .lbl{position:absolute; transform:translate(-50%,-130%); color:var(--txt); pointer-events:auto; cursor:pointer;
@@ -94,9 +107,9 @@
 <div id="labels"></div>
 <div id="reticle"><i class="h l"></i><i class="h r"></i><i class="v t"></i><i class="v b"></i></div>
 
-<div id="settings" class="panel">
-  <h1>Physics & View <small id="collapse">[–]</small></h1>
-  <div id="settingsBody">
+<div id="settings" class="panel closed">
+  <h1 id="settingsHead">Physics & View <span class="tgl" id="collapse">[+]</span></h1>
+  <div id="settingsBody" class="fold"><div class="foldin">
     <div class="row"><label>Time warp <b id="v-warp">1×</b></label>
       <input type="range" id="s-warp" min="0" max="9" step="0.01" value="0"></div>
     <div class="row"><label>Gravity G <b id="v-g">1.00×</b></label>
@@ -138,12 +151,12 @@
       <button id="b-reset">Realistic defaults</button>
       <button id="b-ship" class="warn">Ship → Earth orbit</button>
     </div>
-  </div>
+  </div></div>
 </div>
 
-<div id="help" class="panel">
-  <h1>Helm Controls</h1><span class="toggle" id="helpToggle">[–]</span>
-  <div id="helpBody"><table>
+<div id="help" class="panel closed">
+  <h1 id="helpHead">Helm Controls <span class="tgl" id="helpToggle">[+]</span></h1>
+  <div id="helpBody" class="fold"><div class="foldin"><table>
     <tr><td>W / S &nbsp;·&nbsp; &uarr; / &darr;</td><td>pitch</td></tr>
     <tr><td>A / D &nbsp;·&nbsp; &larr; / &rarr;</td><td>yaw</td></tr>
     <tr><td>Q / E</td><td>roll</td></tr>
@@ -158,18 +171,17 @@
     <tr><td>&#8679; + click label</td><td>beam ship to any station / body</td></tr>
     <tr><td>hold LMB (ship)</td><td>steer — nose follows the mouse directly</td></tr>
     <tr><td>RMB drag &#8597; / wheel</td><td>ship view: camera height / distance · planets: LMB orbit & zoom</td></tr>
-  </table></div>
+  </table></div></div>
 </div>
 
 <div id="hud" class="panel">
-  <table>
-    <tr><td>Date</td><td class="v" id="h-date">—</td></tr>
-    <tr><td>Warp</td><td class="w" id="h-warp">1×</td></tr>
-    <tr><td>Ship speed</td><td class="v" id="h-speed">0 km/s</td></tr>
-    <tr><td>Throttle</td><td class="w" id="h-throttle">0%</td></tr>
-    <tr><td>Accel</td><td class="v" id="h-acc">0 g</td></tr>
-    <tr><td>Nearest</td><td class="v" id="h-near">—</td></tr>
-  </table>
+  <div id="hudrow">
+    <span><em>Warp</em><span class="w" id="h-warp">1×</span></span>
+    <span><em>Speed</em><span class="v" id="h-speed">0 km/s</span></span>
+    <span><em>Throttle</em><span class="w" id="h-throttle">0%</span></span>
+    <span><em>Accel</em><span class="v" id="h-acc">0 g</span></span>
+    <span><em>Nearest</em><span class="v" id="h-near">—</span></span>
+  </div>
   <div id="ap"><span id="ap-txt"></span><div class="bar"><i id="ap-bar"></i></div></div>
 </div>
 
@@ -185,6 +197,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=66"></script>
+<script type="module" src="./js/main.js?v=67"></script>
 </body>
 </html>

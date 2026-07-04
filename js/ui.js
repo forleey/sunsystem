@@ -1,7 +1,7 @@
 // Sliders, HUD, body labels.
 import * as THREE from 'three';
-import { fmtKm, fmtSpeed, fmtWarp, fmtDate, C_KMS } from './data.js?v=66';
-import { toRender } from './scene.js?v=66';
+import { fmtKm, fmtSpeed, fmtWarp, C_KMS } from './data.js?v=67';
+import { toRender } from './scene.js?v=67';
 
 const $ = id => document.getElementById(id);
 
@@ -42,18 +42,22 @@ export class UI {
     });
     $('b-reset').addEventListener('click', () => this.resetDefaults());
     $('b-ship').addEventListener('click', () => { sim.resetShip(); this.toast('Ship returned to Earth orbit'); });
-    $('collapse').addEventListener('click', () => {
-      const b = $('settingsBody');
-      const off = b.style.display === 'none';
-      b.style.display = off ? '' : 'none';
-      $('collapse').textContent = off ? '[–]' : '[+]';
-    });
-    $('helpToggle').addEventListener('click', () => {
-      const b = $('helpBody');
-      const off = b.style.display === 'none';
-      b.style.display = off ? '' : 'none';
-      $('helpToggle').textContent = off ? '[–]' : '[+]';
-    });
+    // fold-up panels: collapsed, the whole chip is the button; open, only the
+    // header folds (clicks on the controls must not). Height animates via the
+    // CSS grid-rows transition; the width change is FLIP-tweened alongside.
+    const fold = (panel, head, icon) => {
+      const p = $(panel), h = $(head);
+      p.addEventListener('click', e => {
+        if (!p.classList.contains('closed') && !h.contains(e.target)) return;
+        const w0 = p.offsetWidth;
+        $(icon).textContent = p.classList.toggle('closed') ? '[+]' : '[–]';
+        const w1 = p.offsetWidth;
+        if (w0 !== w1) p.animate([{ width: w0 + 'px' }, { width: w1 + 'px' }],
+          { duration: 280, easing: 'ease' });
+      });
+    };
+    fold('settings', 'settingsHead', 'collapse');
+    fold('help', 'helpHead', 'helpToggle');
 
     const sel = $('focus');
     const names = ['Starship', ...sim.bodies.map(b => b.name), ...extraNames, 'Andromeda'];
@@ -124,7 +128,6 @@ export class UI {
 
   updateHUD(extra) {
     const sim = this.sim, ship = sim.ship;
-    $('h-date').textContent = fmtDate(sim.time);
     $('h-warp').textContent = fmtWarp(this.state.warp) + (sim.relativistic ? '  ·  c-limit ON' : '');
     const spd = extra.relSpeed != null ? extra.relSpeed : ship.speed();
     $('h-speed').textContent = fmtSpeed(spd)
