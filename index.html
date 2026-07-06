@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sol System — N-Body Simulator</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=68">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=69">
 <meta name="theme-color" content="#02040a">
 <style>
   :root{
@@ -100,12 +100,34 @@
   #reticle .l{left:0;} #reticle .r{right:0;}
   #reticle .v{width:1px; height:6px; left:50%;}
   #reticle .t{top:0;} #reticle .b{bottom:0;}
+
+  /* conflict mode: radar scope, target-lock box, damage flash, foe labels */
+  #radar{position:fixed; right:14px; bottom:14px; width:172px; height:172px; z-index:9;
+    border-radius:50%; background:var(--glass); border:1px solid var(--line);
+    backdrop-filter:blur(14px) saturate(1.3); box-shadow:0 8px 40px rgba(0,0,0,.5);
+    display:none; pointer-events:none;}
+  #radar canvas{width:100%; height:100%;}
+  body.combat #radar{display:block;}
+  #tgt{position:fixed; width:36px; height:36px; margin:-18px 0 0 -18px; display:none;
+    border:1px solid rgba(255,90,76,.95); box-shadow:0 0 9px rgba(255,60,40,.35);
+    z-index:6; pointer-events:none;}
+  #tgt small{position:absolute; top:38px; left:50%; transform:translateX(-50%); white-space:nowrap;
+    color:#ff8f85; font-size:10px; letter-spacing:.06em; text-shadow:0 0 5px #000;}
+  #dmg{position:fixed; inset:0; z-index:15; opacity:0; pointer-events:none;
+    background:radial-gradient(ellipse at center, transparent 45%, rgba(255,40,18,.6) 100%);}
+  .lbl.foe{color:#ff7a6e;}
+  .lbl.foe::after{border-color:#ff7a6e; border-radius:1px;}
+  #hudrow .combat-only{display:none;}
+  body.combat #hudrow .combat-only{display:inline;}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div id="labels"></div>
 <div id="reticle"><i class="h l"></i><i class="h r"></i><i class="v t"></i><i class="v b"></i></div>
+<div id="tgt"><small></small></div>
+<div id="dmg"></div>
+<div id="radar"><canvas id="radarCv" width="344" height="344"></canvas></div>
 
 <div id="settings" class="panel closed">
   <h1 id="settingsHead">Physics & View <span class="tgl" id="collapse">[+]</span></h1>
@@ -134,6 +156,7 @@
     <label class="chk"><input type="checkbox" id="c-trails" checked> Orbit trails</label>
     <label class="chk"><input type="checkbox" id="c-labels" checked> Labels</label>
     <label class="chk"><input type="checkbox" id="c-film" checked> Film look (grain, vignette)</label>
+    <label class="chk"><input type="checkbox" id="c-combat"> Conflict mode — raider waves (K)</label>
     <div class="btnrow">
       <button id="b-savelook">Save look as default</button>
       <button id="b-resetlook">Reset look</button>
@@ -171,6 +194,10 @@
     <tr><td>&#8679; + click label</td><td>beam ship to any station / body</td></tr>
     <tr><td>hold LMB (ship)</td><td>steer — nose follows the mouse directly</td></tr>
     <tr><td>RMB drag &#8597; / wheel</td><td>ship view: camera height / distance · planets: LMB orbit & zoom</td></tr>
+    <tr><td>K</td><td>conflict mode on / off — raider waves</td></tr>
+    <tr><td>R</td><td>cycle target lock</td></tr>
+    <tr><td>G (hold)</td><td>laser cannons — light-speed hitscan</td></tr>
+    <tr><td>T</td><td>photon torpedo — homing, 0.5c-rated</td></tr>
   </table></div></div>
 </div>
 
@@ -181,6 +208,9 @@
     <span><em>Throttle</em><span class="w" id="h-throttle">0%</span></span>
     <span><em>Accel</em><span class="v" id="h-acc">0 g</span></span>
     <span><em>Nearest</em><span class="v" id="h-near">—</span></span>
+    <span class="combat-only"><em>Hull</em><span id="h-hp">100%</span></span>
+    <span class="combat-only"><em>Kills</em><span class="v" id="h-kills">0</span></span>
+    <span class="combat-only"><em>Wave</em><span class="w" id="h-wave">—</span></span>
   </div>
   <div id="ap"><span id="ap-txt"></span><div class="bar"><i id="ap-bar"></i></div></div>
 </div>
@@ -197,6 +227,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=68"></script>
+<script type="module" src="./js/main.js?v=69"></script>
 </body>
 </html>

@@ -100,7 +100,28 @@ function fetchModel(url) {
 
 // Normalize: center, scale so the longest axis equals lengthKm (scene units
 // = km), nose to -Z via yaw, then attach nav blinkers at the extremes.
-function normalize(src, { lengthKm, yaw = 0, pitch = 0, roll = 0, lift = 0, blinkers = 2, unlit = false }) {
+// raider paint: near-black hull, red engine glow — hostile silhouette.
+// Materials are SHARED across GLB clones, so clone them before painting.
+function raiderPaint(root) {
+  root.traverse(n => {
+    if (!n.isMesh) return;
+    n.material = Array.isArray(n.material) ? n.material.map(m => m.clone()) : n.material.clone();
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    for (const m of mats) {
+      const glowing = m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.2 && !m.map;
+      if (glowing) { m.emissive.setRGB(1.8, 0.28, 0.12); continue; }
+      if (m.emissiveMap) m.emissive.setRGB(1.4, 0.3, 0.15);
+      if (m.color) {
+        const c = m.color, lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+        const v = 0.13 + lum * 0.1;
+        c.setRGB(v, v * 1.02, v * 1.12);
+      }
+      m.userData._washed = true;   // keep the fleet wash off this paint job
+    }
+  });
+}
+
+function normalize(src, { lengthKm, yaw = 0, pitch = 0, roll = 0, lift = 0, blinkers = 2, unlit = false, raider = false }) {
   const obj = src.clone(true);
   const wrap = new THREE.Group();
   const inner = new THREE.Group();
@@ -131,13 +152,17 @@ function normalize(src, { lengthKm, yaw = 0, pitch = 0, roll = 0, lift = 0, blin
       if (!m.metalnessMap && m.metalness > 0.85) { m.metalness = 0.35; m.roughness = Math.max(m.roughness ?? 1, 0.5); }
     }
   });
-  whitewashObject(obj);   // fleet paint scheme: white hull, light gray shading
+  if (raider) raiderPaint(obj);   // hostiles: black hull, red glow
+  else whitewashObject(obj);      // fleet paint scheme: white hull, light gray shading
 
   // nav blinkers (fleet.place drives emissiveIntensity)
   wrap.userData.blinkers = [];
   if (blinkers > 0) {
     const half = lengthKm / 2;
-    const spots = [
+    const spots = raider ? [
+      [half * 0.85, 0, 0, 0xff3322], [-half * 0.85, 0, 0, 0xff3322],
+      [0, half * 0.5, 0, 0xff5533], [0, 0, -half * 0.9, 0xff3322],
+    ] : [
       [half * 0.85, 0, 0, 0xff5544], [-half * 0.85, 0, 0, 0x44ff77],
       [0, half * 0.5, 0, 0xffffff], [0, 0, -half * 0.9, 0xffffff],
     ];

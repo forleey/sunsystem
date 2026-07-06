@@ -1,7 +1,7 @@
 // Sliders, HUD, body labels.
 import * as THREE from 'three';
-import { fmtKm, fmtSpeed, fmtWarp, C_KMS } from './data.js?v=68';
-import { toRender } from './scene.js?v=68';
+import { fmtKm, fmtSpeed, fmtWarp, C_KMS } from './data.js?v=69';
+import { toRender } from './scene.js?v=69';
 
 const $ = id => document.getElementById(id);
 
@@ -95,15 +95,24 @@ export class UI {
 
   // anchors: [{name, cls, getPos(V3out)}] in physics frame
   initLabels(anchors) {
-    const wrap = $('labels');
-    for (const a of anchors) {
-      const el = document.createElement('div');
-      el.className = 'lbl' + (a.cls ? ' ' + a.cls : '');
-      el.textContent = a.name;
-      el.addEventListener('click', e => this.onFocus(a.name, e.shiftKey));
-      wrap.appendChild(el);
-      this.labelEls.set(a.name, { el, a });
-    }
+    for (const a of anchors) this.addLabel(a);
+  }
+
+  // dynamic label registration (combat spawns raiders / drafts wingmen)
+  addLabel(a) {
+    const el = document.createElement('div');
+    el.className = 'lbl' + (a.cls ? ' ' + a.cls : '');
+    el.textContent = a.name;
+    el.addEventListener('click', e => this.onFocus(a.name, e.shiftKey));
+    $('labels').appendChild(el);
+    this.labelEls.set(a.name, { el, a });
+  }
+
+  removeLabel(name) {
+    const rec = this.labelEls.get(name);
+    if (!rec) return;
+    rec.el.remove();
+    this.labelEls.delete(name);
   }
 
   updateLabels(focusPos, camera, focusName) {

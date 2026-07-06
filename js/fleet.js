@@ -2,15 +2,15 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=68';
-import { G0 } from './data.js?v=68';
+import { toRender } from './scene.js?v=69';
+import { G0 } from './data.js?v=69';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=68';
-import { loadInto, whitewashObject } from './models.js?v=68';
-import { applyGreebleShading } from './greeble.js?v=68';
-import { buildGreebleStation } from './megastation.js?v=68';
+} from './fleet_meshes.js?v=69';
+import { loadInto, whitewashObject } from './models.js?v=69';
+import { applyGreebleShading } from './greeble.js?v=69';
+import { buildGreebleStation } from './megastation.js?v=69';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
@@ -165,14 +165,27 @@ export class Fleet {
   }
 
   velOf(o, t, out) {
+    if (o.combat) { out.x = o.combat.vel.x; out.y = o.combat.vel.y; out.z = o.combat.vel.z; return out; }
     o.velAt(t, out);
     return out;
   }
 
+  // detach a combat-spawned object (raiders) from the scene and registry
+  remove(o) {
+    this.scene.remove(o.grp);
+    const i = this.objects.indexOf(o);
+    if (i >= 0) this.objects.splice(i, 1);
+    this.byName.delete(o.name);
+  }
+
   // phase 1: advance every object's physics-frame position (run BEFORE the
-  // focus position is resolved, or a focused NPC lags its own camera origin)
+  // focus position is resolved, or a focused NPC lags its own camera origin).
+  // Objects drafted into combat fly free — their agent position wins.
   tick(simT) {
-    for (const o of this.objects) o.state(simT, o.pos);
+    for (const o of this.objects) {
+      if (o.combat) { o.pos.x = o.combat.pos.x; o.pos.y = o.combat.pos.y; o.pos.z = o.combat.pos.z; }
+      else o.state(simT, o.pos);
+    }
   }
 
   // phase 2: render placement relative to the focus
@@ -183,12 +196,17 @@ export class Fleet {
       toRender(this.tmp, o.grp.position);
 
       if (o.kind === 'ship') {
-        // face along the direction of travel
-        o.state(simT + o.hDiff, o.pos2);
-        this.tmpD.set(o.pos2.x - o.pos.x, o.pos2.z - o.pos.z, -(o.pos2.y - o.pos.y));
-        if (this.tmpD.lengthSq() > 1e-12) {
-          this.tmpD.normalize();
-          o.grp.quaternion.setFromUnitVectors(FWD, this.tmpD);
+        if (o.combat) {
+          // combat agents aim where the AI points them
+          o.grp.quaternion.setFromUnitVectors(FWD, o.combat.faceR);
+        } else {
+          // face along the direction of travel
+          o.state(simT + o.hDiff, o.pos2);
+          this.tmpD.set(o.pos2.x - o.pos.x, o.pos2.z - o.pos.z, -(o.pos2.y - o.pos.y));
+          if (this.tmpD.lengthSq() > 1e-12) {
+            this.tmpD.normalize();
+            o.grp.quaternion.setFromUnitVectors(FWD, this.tmpD);
+          }
         }
       } else if (o.spin) {
         o.grp.rotation.y += o.spin * dtWall;
