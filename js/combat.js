@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=73';
-import { fmtKm } from './data.js?v=73';
-import { loadInto } from './models.js?v=73';
-import { buildWarship } from './fleet_meshes.js?v=73';
-import { fromRender } from './ship3d.js?v=73';
-import { Sfx } from './sfx.js?v=73';
+import { toRender } from './scene.js?v=74';
+import { fmtKm } from './data.js?v=74';
+import { loadInto } from './models.js?v=74';
+import { buildWarship } from './fleet_meshes.js?v=74';
+import { fromRender } from './ship3d.js?v=74';
+import { Sfx } from './sfx.js?v=74';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
