@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=72';
-import { fmtKm } from './data.js?v=72';
-import { loadInto } from './models.js?v=72';
-import { buildWarship } from './fleet_meshes.js?v=72';
-import { fromRender } from './ship3d.js?v=72';
-import { Sfx } from './sfx.js?v=72';
+import { toRender } from './scene.js?v=73';
+import { fmtKm } from './data.js?v=73';
+import { loadInto } from './models.js?v=73';
+import { buildWarship } from './fleet_meshes.js?v=73';
+import { fromRender } from './ship3d.js?v=73';
+import { Sfx } from './sfx.js?v=73';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
@@ -31,11 +31,11 @@ const mkRaider = () => loadInto(buildWarship(THREE), 'warship.glb',
   { lengthKm: 0.18, yaw: Math.PI, blinkers: 3, raider: true });
 
 export class Combat {
-  constructor({ scene, sim, fleet, shipView, ui, music, onPlayerDeath }) {
+  constructor({ scene, sim, fleet, shipView, ui, music, sfx, onPlayerDeath }) {
     this.scene = scene; this.sim = sim; this.fleet = fleet;
     this.shipView = shipView; this.ui = ui; this.music = music;
     this.onPlayerDeath = onPlayerDeath;
-    this.sfx = new Sfx();
+    this.sfx = sfx || new Sfx();
     this.enabled = false;
     this.reticleHot = false;
     this._musT = 0;

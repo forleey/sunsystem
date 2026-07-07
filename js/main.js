@@ -1,15 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=72';
-import { Sim, V3 } from './physics.js?v=72';
-import { SystemView } from './bodies3d.js?v=72';
-import { ShipView } from './ship3d.js?v=72';
-import { UI } from './ui.js?v=72';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=72';
-import { Fleet } from './fleet.js?v=72';
-import { Music, renderTest } from './music.js?v=72';
-import { initEnvironment } from './models.js?v=72';
-import { Combat } from './combat.js?v=72';
+import { createStage, makeSky } from './scene.js?v=73';
+import { Sim, V3 } from './physics.js?v=73';
+import { SystemView } from './bodies3d.js?v=73';
+import { ShipView } from './ship3d.js?v=73';
+import { UI } from './ui.js?v=73';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=73';
+import { Fleet } from './fleet.js?v=73';
+import { Music, renderTest } from './music.js?v=73';
+import { initEnvironment } from './models.js?v=73';
+import { Combat } from './combat.js?v=73';
+import { Sfx } from './sfx.js?v=73';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -286,9 +287,10 @@ window.addEventListener('pointerdown', musicKickoff, true);
 window.addEventListener('keydown', musicKickoff, true);
 
 // ---------- conflict mode (raider waves, lasers, torpedoes, radar) ----------
-// (the K/R/T keydown bindings above resolve this const at call time)
+// (the R/T keydown bindings above resolve these consts at call time)
+const sfx = new Sfx();   // shared: weapons (combat) + engine bed (both modes)
 const combat = new Combat({
-  scene: stage.scene, sim, fleet, shipView, ui, music,
+  scene: stage.scene, sim, fleet, shipView, ui, music, sfx,
   onPlayerDeath: () => {
     sim.resetShip();
     bootAttitude();
@@ -342,6 +344,11 @@ function hudExtra() {
 const fPos = new V3();
 let last = performance.now();
 let apWarp = 1;
+// menu beauty shot: camera rides the hull while the ship "flies"
+let titleT = 0;
+const titleQ = new THREE.Quaternion();
+const titleAxis = new THREE.Vector3(0, 0, 1);
+const titleTgt = new THREE.Vector3();
 
 let lastRafAt = 0;
 function frame(now) {
@@ -380,6 +387,11 @@ function frameBody(now) {
 
   focusPos(fPos);
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
+
+  // engine bed: a subtle rumble that follows the burn (all modes)
+  const shp = sim.ship;
+  const burning = shp.thrustAcc > 0 || shp.braking || shp.autopilot;
+  sfx.engine(burning ? Math.max(0.25, shp.autopilot ? 1 : shp.throttle) : 0);
   if (arrivalT >= 0) {
     arrivalT += dtWall / ARRIVE_S;
     if (arrivalT >= 1) arrivalT = -1;                    // lands on exactly zero — no snap
@@ -393,12 +405,31 @@ function frameBody(now) {
   combat.place(fPos, stage.camera);
 
   if (focusName === 'Starship') {
-    // chase cam: sit aft-above of the hull, follow orientation with a soft lag
     controls.enabled = false;
-    chaseQuat.slerp(shipView.quat, 1 - Math.exp(-5 * dtWall));
-    stage.camera.position.set(0, Math.sin(chaseEl), Math.cos(chaseEl)).multiplyScalar(chaseDist).applyQuaternion(chaseQuat);
-    stage.camera.up.set(0, 1, 0).applyQuaternion(chaseQuat);
-    stage.camera.lookAt(0, 0, 0);
+    if (document.body.classList.contains('title')) {
+      // menu beauty shot: hug the hull (the ship is 110 m — sit ~60 m off),
+      // gentle roll + camera sway, engines burning for the flight look
+      titleT += dtWall;
+      shipView.quat.multiply(titleQ.setFromAxisAngle(titleAxis, 0.016 * dtWall));
+      stage.camera.position.set(
+        -0.055 + Math.sin(titleT * 0.11) * 0.005,
+        0.015 + Math.sin(titleT * 0.073) * 0.004,
+        -0.050
+      ).applyQuaternion(shipView.quat);
+      titleTgt.set(0.015, 0.008, 0.040).applyQuaternion(shipView.quat);
+      stage.camera.up.set(0, 1, 0).applyQuaternion(shipView.quat);
+      stage.camera.lookAt(titleTgt);
+      chaseQuat.copy(shipView.quat);
+      const pulse = 0.85 + 0.15 * Math.sin(now * 0.013);
+      for (const gr of shipView.grilles) gr.material.emissiveIntensity = 3.6 * pulse;
+      shipView.lamp.intensity = 0.4 * pulse;
+    } else {
+      // chase cam: sit aft-above of the hull, follow orientation with a soft lag
+      chaseQuat.slerp(shipView.quat, 1 - Math.exp(-5 * dtWall));
+      stage.camera.position.set(0, Math.sin(chaseEl), Math.cos(chaseEl)).multiplyScalar(chaseDist).applyQuaternion(chaseQuat);
+      stage.camera.up.set(0, 1, 0).applyQuaternion(chaseQuat);
+      stage.camera.lookAt(0, 0, 0);
+    }
   } else {
     if (!controls.enabled) { controls.enabled = true; stage.camera.up.set(0, 1, 0); }
     controls.minDistance = Math.max(focusRadiusKm() * 1.25, 0.08);

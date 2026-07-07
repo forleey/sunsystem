@@ -134,6 +134,33 @@ export class Sfx {
     } catch (e) {}
   }
 
+  // continuous engine bed: looped noise through a lowpass + a detuned sub-sine
+  // pair. Level follows throttle every frame — subtle rumble, not a roar.
+  engine(v) {
+    try {
+      if (!this.ctx && !(v > 0)) return;   // never create audio before a gesture-driven burn
+      const ctx = this._c();
+      if (!this.eng) {
+        const noise = this._noise(2);
+        noise.loop = true;
+        const lp = ctx.createBiquadFilter();
+        lp.type = 'lowpass'; lp.frequency.value = 180; lp.Q.value = 0.6;
+        const ng = ctx.createGain(); ng.gain.value = 0;
+        noise.connect(lp); lp.connect(ng); ng.connect(this.out); noise.start();
+        const o1 = ctx.createOscillator(); o1.type = 'sine'; o1.frequency.value = 44;
+        const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 44; o2.detune.value = 9;
+        const og = ctx.createGain(); og.gain.value = 0;
+        o1.connect(og); o2.connect(og); og.connect(this.out);
+        o1.start(); o2.start();
+        this.eng = { lp, ng, og };
+      }
+      const t = this.ctx.currentTime, nv = Math.min(1, Math.max(0, v));
+      this.eng.ng.gain.setTargetAtTime(nv * 0.10, t, 0.12);
+      this.eng.og.gain.setTargetAtTime(nv * 0.075, t, 0.12);
+      this.eng.lp.frequency.setTargetAtTime(160 + nv * 320, t, 0.2);
+    } catch (e) {}
+  }
+
   // red alert: two-tone klaxon
   alert() {
     try {
