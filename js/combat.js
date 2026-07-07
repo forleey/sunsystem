@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=70';
-import { fmtKm } from './data.js?v=70';
-import { loadInto } from './models.js?v=70';
-import { buildWarship } from './fleet_meshes.js?v=70';
-import { fromRender } from './ship3d.js?v=70';
-import { Sfx } from './sfx.js?v=70';
+import { toRender } from './scene.js?v=71';
+import { fmtKm } from './data.js?v=71';
+import { loadInto } from './models.js?v=71';
+import { buildWarship } from './fleet_meshes.js?v=71';
+import { fromRender } from './ship3d.js?v=71';
+import { Sfx } from './sfx.js?v=71';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
@@ -63,8 +63,6 @@ export class Combat {
     if (on === this.enabled) return;
     this.enabled = on;
     document.body.classList.toggle('combat', on);
-    const chk = document.getElementById('c-combat');
-    if (chk && chk.checked !== on) chk.checked = on;
     if (on) {
       this.kills = 0; this.wave = 0; this.playerHp = PLAYER_HP;
       this.invulnT = 2; this.waveT = 2.5; this.t = 0; this.raiderSeq = 0;
@@ -73,7 +71,7 @@ export class Combat {
       this.sfx.unlock();
       this.sfx.alert();
       if (this.music) this.music.armCombat();
-      this.ui.toast('CONFLICT MODE — raiders inbound · G lasers · T torpedo · R target · K stand down', 6000);
+      this.ui.toast('BATTLE MODE — raiders inbound · G lasers · T torpedo · R target · Esc stand down', 6000);
     } else {
       for (const a of [...this.agents]) {
         if (a.side === 'foe') { this.fleet.remove(a.o); this.ui.removeLabel(a.name); }

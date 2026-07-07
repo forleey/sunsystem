@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sol System — N-Body Simulator</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=70">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=71">
 <meta name="theme-color" content="#02040a">
 <style>
   :root{
@@ -121,6 +121,30 @@
   .lbl.foe::after{border-color:#ff7a6e; border-radius:1px;}
   #hudrow .combat-only{display:none;}
   body.combat #hudrow .combat-only{display:inline;}
+
+  /* start screen: STARBLAZER logo + mode select over the live 3D system */
+  #title{position:fixed; inset:0; z-index:30; display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(ellipse at 50% 42%, rgba(4,8,16,.30) 0%, rgba(2,4,10,.78) 72%, rgba(1,2,6,.92) 100%);}
+  body:not(.title) #title{display:none;}
+  body.title :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#toast){display:none !important;}
+  #titleInner{text-align:center; transform:translateY(-4vh); padding:0 20px;}
+  #logo{font-size:clamp(54px, 9vw, 118px); letter-spacing:.24em; margin-right:-.24em; font-weight:700;
+    background:linear-gradient(180deg, #f2faff 8%, #9fdcff 46%, #2a7fb8 78%, #124a72);
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 26px rgba(106,209,255,.36)) drop-shadow(0 2px 6px rgba(0,0,0,.8));}
+  #tagline{color:var(--dim); letter-spacing:.42em; margin-right:-.42em; text-transform:uppercase;
+    font-size:clamp(10px, 1.15vw, 14px); margin-top:10px; margin-bottom:54px;}
+  #modes{display:flex; gap:18px; justify-content:center; flex-wrap:wrap;}
+  .mode{flex:0 0 305px; text-align:left; padding:18px 20px; border-radius:12px; cursor:pointer;
+    background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(14px) saturate(1.3);
+    transition:transform .18s ease, border-color .18s ease, background .18s ease;}
+  .mode b{display:block; font-size:15px; letter-spacing:.16em; text-transform:uppercase;
+    color:var(--acc); margin-bottom:7px; font-weight:600;}
+  .mode span{display:block; color:var(--dim); font-size:12px; line-height:1.55;}
+  .mode:hover{transform:translateY(-3px); border-color:var(--acc); background:rgba(106,209,255,.10);}
+  .mode.battle b{color:var(--acc2);}
+  .mode.battle:hover{border-color:var(--acc2); background:rgba(255,179,92,.10);}
+  #titleHint{margin-top:48px; color:#55697f; font-size:11px; letter-spacing:.14em;}
 </style>
 </head>
 <body>
@@ -130,6 +154,24 @@
 <div id="tgt"><small></small></div>
 <div id="dmg"></div>
 <div id="radar"><canvas id="radarCv" width="344" height="344"></canvas></div>
+
+<div id="title">
+  <div id="titleInner">
+    <h2 id="logo">STARBLAZER</h2>
+    <p id="tagline">A living Sol system at your helm</p>
+    <div id="modes">
+      <button class="mode" id="m-free">
+        <b>Free Mode</b>
+        <span>Explore the system — real N-body physics, stations and fleet traffic, warp jumps out to Andromeda. No hostiles.</span>
+      </button>
+      <button class="mode battle" id="m-battle">
+        <b>Battle Mode</b>
+        <span>Raider waves hunt you. Laser cannons, photon torpedoes, target lock, radar — and Federation wingmen at your side.</span>
+      </button>
+    </div>
+    <p id="titleHint">Space thrust &nbsp;·&nbsp; hold LMB steer &nbsp;·&nbsp; Esc back to this screen &nbsp;·&nbsp; M music</p>
+  </div>
+</div>
 
 <div id="settings" class="panel closed">
   <h1 id="settingsHead">Physics & View <span class="tgl" id="collapse">[+]</span></h1>
@@ -158,7 +200,6 @@
     <label class="chk"><input type="checkbox" id="c-trails" checked> Orbit trails</label>
     <label class="chk"><input type="checkbox" id="c-labels" checked> Labels</label>
     <label class="chk"><input type="checkbox" id="c-film" checked> Film look (grain, vignette)</label>
-    <label class="chk"><input type="checkbox" id="c-combat"> Conflict mode — raider waves (K)</label>
     <div class="btnrow">
       <button id="b-savelook">Save look as default</button>
       <button id="b-resetlook">Reset look</button>
@@ -196,10 +237,10 @@
     <tr><td>&#8679; + click label</td><td>beam ship to any station / body</td></tr>
     <tr><td>hold LMB (ship)</td><td>steer — nose follows the mouse directly</td></tr>
     <tr><td>RMB drag &#8597; / wheel</td><td>ship view: camera height / distance · planets: LMB orbit & zoom</td></tr>
-    <tr><td>K</td><td>conflict mode on / off — raider waves</td></tr>
-    <tr><td>R</td><td>cycle target lock</td></tr>
-    <tr><td>G (hold)</td><td>laser cannons — light-speed hitscan</td></tr>
-    <tr><td>T</td><td>photon torpedo — homing, 0.5c-rated</td></tr>
+    <tr><td>Esc</td><td>back to the start screen (mode select)</td></tr>
+    <tr><td>R</td><td>cycle target lock (Battle Mode)</td></tr>
+    <tr><td>G (hold)</td><td>laser cannons — light-speed hitscan (Battle Mode)</td></tr>
+    <tr><td>T</td><td>photon torpedo — homing, 0.5c-rated (Battle Mode)</td></tr>
   </table></div></div>
 </div>
 
@@ -229,6 +270,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=70"></script>
+<script type="module" src="./js/main.js?v=71"></script>
 </body>
 </html>

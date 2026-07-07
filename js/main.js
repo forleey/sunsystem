@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=70';
-import { Sim, V3 } from './physics.js?v=70';
-import { SystemView } from './bodies3d.js?v=70';
-import { ShipView } from './ship3d.js?v=70';
-import { UI } from './ui.js?v=70';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=70';
-import { Fleet } from './fleet.js?v=70';
-import { Music, renderTest } from './music.js?v=70';
-import { initEnvironment } from './models.js?v=70';
-import { Combat } from './combat.js?v=70';
+import { createStage, makeSky } from './scene.js?v=71';
+import { Sim, V3 } from './physics.js?v=71';
+import { SystemView } from './bodies3d.js?v=71';
+import { ShipView } from './ship3d.js?v=71';
+import { UI } from './ui.js?v=71';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=71';
+import { Fleet } from './fleet.js?v=71';
+import { Music, renderTest } from './music.js?v=71';
+import { initEnvironment } from './models.js?v=71';
+import { Combat } from './combat.js?v=71';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -127,8 +127,7 @@ function bootAttitude(rollRad = -0.6) {
   shipView.quat.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rollRad));
   chaseQuat.copy(shipView.quat);
 }
-bootAttitude();
-startArrival();   // boot opens with the fly-in
+bootAttitude();   // parked behind the start screen — the fly-in runs on mode select
 
 let focusName = 'Earth';
 const ui = new UI(sim, (name, beam) => { if (beam) beamToName(name); else applyFocus(name); },
@@ -235,13 +234,17 @@ function startHomeJump() {
 
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'SELECT') return;   // keep arrow/enter nav inside the focus dropdown
+  if (e.code === 'Escape') {                   // back to the start screen (mode select)
+    if (!document.body.classList.contains('title')) showTitle();
+    return;
+  }
+  if (document.body.classList.contains('title')) return;   // menu is up — helm keys idle
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();  // helm keys never drive UI controls
   keys.add(e.code);
   if (e.code === 'KeyJ') startAndromedaJump();
   if (e.code === 'KeyH') startHomeJump();
   if (e.code === 'KeyF') applyFocus('Starship');
   if (e.code === 'KeyM') { music.toggle(); music.onTrackChange(music.title); }
-  if (e.code === 'KeyK') combat.setEnabled(!combat.enabled);
   if (e.code === 'KeyR') combat.cycleTarget();
   if (e.code === 'KeyT') combat.firePlayerTorpedo();
   if (e.code === 'KeyX') {
@@ -294,7 +297,25 @@ const combat = new Combat({
     ui.toast('Hull breached — emergency beam-out to Earth orbit', 4200);
   },
 });
-document.getElementById('c-combat').addEventListener('change', e => combat.setEnabled(e.target.checked));
+
+// ---------- start screen: STARBLAZER mode select ----------
+function showTitle() {
+  document.body.classList.add('title');
+  if (combat.enabled) combat.setEnabled(false);
+  music.setTitleActive(true);
+}
+function startGame(mode) {
+  document.body.classList.remove('title');
+  music.setTitleActive(false);
+  sim.resetShip();
+  bootAttitude();
+  applyFocus('Starship', false);
+  startArrival();
+  if (mode === 'battle') combat.setEnabled(true);
+  else ui.toast('Free Mode — the system is yours. J jumps to Andromeda, H flies home.', 4600);
+}
+document.getElementById('m-free').addEventListener('click', () => startGame('free'));
+document.getElementById('m-battle').addEventListener('click', () => startGame('battle'));
 
 // panel controls steal keyboard focus after a click/drag — give it back to the helm.
 // selects only blur on change: blurring on pointerup would close the dropdown mid-pick
@@ -470,5 +491,5 @@ window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, keys, 
 console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);
-ui.toast('Sol system loaded — N-body physics live. Press J for the Andromeda jump.', 5200);
+showTitle();
 requestAnimationFrame(frame);

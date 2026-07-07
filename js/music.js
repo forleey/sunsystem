@@ -2,7 +2,7 @@
 // OpenRouter, see music_tracks.js); this synthesizes them with Web Audio —
 // no audio files, loops forever. The graph builder is BaseAudioContext-agnostic
 // so the whole engine can be verified with an OfflineAudioContext render.
-import { TRACKS } from './music_tracks.js?v=70';
+import { TRACKS } from './music_tracks.js?v=71';
 
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -102,9 +102,14 @@ export class Music {
     this._live = [];
     this._timer = null;
     this._ambientOn = false;
-    // combat layer: its own loop + gain, crossfaded by threat level
-    this._cGain = null; this._cBus = null; this._cTimer = null; this._cLive = [];
+    // aux layers on their own buses, crossfaded over the ambient bed:
+    // combat (Red Alert, by threat level) and title (Starblazer Theme)
+    this.combatL = this._mkLayer(t => t.combat);
+    this.titleL = this._mkLayer(t => t.titleTrack);
+    this.titleActive = false;
   }
+
+  _mkLayer(sel) { return { sel, gain: null, bus: null, timer: null, live: [], level: 0 }; }
   get title() { return TRACKS[this.idx].title; }
 
   _ensureCtx() {
@@ -122,6 +127,7 @@ export class Music {
     }
     this.ctx.resume();
     this.enabled = true;
+    if (this.titleActive) this._setLayer(this.titleL, 1);   // booted on the start screen
     this.onTrackChange(this.title);
   }
 
@@ -145,15 +151,17 @@ export class Music {
       try { oldBus.disconnect(); } catch (e) {}
     }, 1500);
     this.master = buildMaster(this.ctx, this.ctx.destination);   // fresh bus + reverb
-    // the combat layer outlives track switches — re-hang it on the new master
-    if (this._cGain) {
-      try { this._cGain.disconnect(); } catch (e) {}
-      this._cGain.connect(this.master.out);
+    // aux layers outlive track switches — re-hang them on the new master
+    for (const L of [this.combatL, this.titleL]) {
+      if (!L.gain) continue;
+      try { L.gain.disconnect(); } catch (e) {}
+      L.gain.connect(this.master.out);
     }
   }
 
-  _nextIdx() {   // ambient rotation skips combat-only tracks
-    do { this.idx = (this.idx + 1) % TRACKS.length; } while (TRACKS[this.idx].combat);
+  _nextIdx() {   // ambient rotation skips the layer-only tracks
+    do { this.idx = (this.idx + 1) % TRACKS.length; }
+    while (TRACKS[this.idx].combat || TRACKS[this.idx].titleTrack);
   }
 
   next() {
@@ -164,56 +172,77 @@ export class Music {
     this.onTrackChange(this.title);
   }
 
-  // ---- combat layer (Red Alert): faded by threat level 0..1 ----
-  armCombat() {
+  // ---- aux layer engine (combat + title themes) ----
+  _armLayer(L) {
     this._ensureCtx();
     this.ctx.resume();
-    if (!this._cGain) {
-      this._cGain = this.ctx.createGain();
-      this._cGain.gain.value = 0;
-      this._cGain.connect(this.master.out);
-      this._cBus = this.ctx.createGain();
-      this._cBus.connect(this._cGain);
+    if (!L.gain) {
+      L.gain = this.ctx.createGain();
+      L.gain.gain.value = 0;
+      L.gain.connect(this.master.out);
+      L.bus = this.ctx.createGain();
+      L.bus.connect(L.gain);
     }
   }
 
-  _cLoop(at) {
-    const idx = TRACKS.findIndex(t => t.combat);
+  _layerLoop(L, at) {
+    const idx = TRACKS.findIndex(L.sel);
     if (idx < 0) return;
-    const { nodes, loopDur } = scheduleTrack(this.ctx, this._cBus, TRACKS[idx], at);
-    this._cLive.push({ nodes, until: at + loopDur + 10 });
-    this._cLive = this._cLive.filter(l => l.until > this.ctx.currentTime);
+    const { nodes, loopDur } = scheduleTrack(this.ctx, L.bus, TRACKS[idx], at);
+    L.live.push({ nodes, until: at + loopDur + 10 });
+    L.live = L.live.filter(l => l.until > this.ctx.currentTime);
     const lead = (at + loopDur - this.ctx.currentTime - 2) * 1000;
-    this._cTimer = setTimeout(() => this._cLoop(at + loopDur), Math.max(250, lead));
+    L.timer = setTimeout(() => this._layerLoop(L, at + loopDur), Math.max(250, lead));
   }
 
-  // v=0: silent, v=1: full Red Alert; the ambient bed ducks in proportion
-  setCombatLevel(v) {
-    if (!(v > 0) && !this._cGain) return;
-    this.armCombat();
-    if (v > 0 && !this._cTimer) this._cLoop(this.ctx.currentTime + 0.2);
+  _setLayer(L, v) {
+    if (!(v > 0) && !L.gain) { L.level = 0; return; }
+    this._armLayer(L);
+    if (v > 0 && !L.timer) this._layerLoop(L, this.ctx.currentTime + 0.2);
+    L.level = v;
     const now = this.ctx.currentTime;
-    this._cGain.gain.cancelScheduledValues(now);
-    this._cGain.gain.setValueAtTime(this._cGain.gain.value, now);
-    this._cGain.gain.linearRampToValueAtTime(v * 0.95, now + 1.4);
-    if (this._ambientOn) {
-      const b = this.master.bus.gain;
-      b.cancelScheduledValues(now);
-      b.setValueAtTime(b.value, now);
-      b.linearRampToValueAtTime(1 - 0.72 * v, now + 1.4);
-    }
+    L.gain.gain.cancelScheduledValues(now);
+    L.gain.gain.setValueAtTime(L.gain.gain.value, now);
+    L.gain.gain.linearRampToValueAtTime(v * 0.95, now + 1.4);
+    this._applyDuck();
   }
 
-  stopCombat() {
-    if (!this._cGain) return;
-    this.setCombatLevel(0);
-    clearTimeout(this._cTimer);
-    this._cTimer = null;
-    const old = this._cLive;
-    this._cLive = [];
+  _stopLayer(L) {
+    if (!L.gain) return;
+    this._setLayer(L, 0);
+    clearTimeout(L.timer);
+    L.timer = null;
+    const old = L.live;
+    L.live = [];
     setTimeout(() => {
       for (const l of old) for (const n of l.nodes) { try { n.disconnect(); } catch (e) {} }
     }, 2600);
+  }
+
+  _applyDuck() {   // the ambient bed yields to the loudest active layer
+    if (!this._ambientOn) return;
+    const duck = Math.max(this.combatL.level, this.titleL.level);
+    const b = this.master.bus.gain, now = this.ctx.currentTime;
+    b.cancelScheduledValues(now);
+    b.setValueAtTime(b.value, now);
+    b.linearRampToValueAtTime(1 - 0.75 * duck, now + 1.4);
+  }
+
+  // combat (Red Alert): v=0 silent .. v=1 full, driven by threat distance
+  armCombat() { this._armLayer(this.combatL); }
+  setCombatLevel(v) {
+    if (!(v > 0) && !this.combatL.gain) return;
+    this._setLayer(this.combatL, v);
+  }
+  stopCombat() { this._stopLayer(this.combatL); }
+
+  // title (Starblazer Theme): plays while the start screen is up. Pre-gesture
+  // there is no AudioContext yet — start() honors the flag on first kickoff.
+  setTitleActive(on) {
+    this.titleActive = on;
+    if (!this.ctx) return;
+    if (on) this._setLayer(this.titleL, 1);
+    else this._stopLayer(this.titleL);
   }
 
   toggle() {
