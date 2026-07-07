@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sol System — N-Body Simulator</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=69">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=70">
 <meta name="theme-color" content="#02040a">
 <style>
   :root{
@@ -100,6 +100,8 @@
   #reticle .l{left:0;} #reticle .r{right:0;}
   #reticle .v{width:1px; height:6px; left:50%;}
   #reticle .t{top:0;} #reticle .b{bottom:0;}
+  #reticle.hot{opacity:.95;}
+  #reticle.hot i{background:#ff5a4c;}
 
   /* conflict mode: radar scope, target-lock box, damage flash, foe labels */
   #radar{position:fixed; right:14px; bottom:14px; width:172px; height:172px; z-index:9;
@@ -227,6 +229,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=69"></script>
+<script type="module" src="./js/main.js?v=70"></script>
 </body>
 </html>

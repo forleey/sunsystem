@@ -14,13 +14,14 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=69';
-import { fmtKm } from './data.js?v=69';
-import { loadInto } from './models.js?v=69';
-import { buildWarship } from './fleet_meshes.js?v=69';
-import { fromRender } from './ship3d.js?v=69';
+import { toRender } from './scene.js?v=70';
+import { fmtKm } from './data.js?v=70';
+import { loadInto } from './models.js?v=70';
+import { buildWarship } from './fleet_meshes.js?v=70';
+import { fromRender } from './ship3d.js?v=70';
+import { Sfx } from './sfx.js?v=70';
 
-const LASER = { range: 12, cone: 0.93, cd: 0.32, dmg: 9 };
+const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
 const TORP = { speed: 7, accel: 5, relMax: 12, fuse: 0.3, life: 18, cd: 2.6, range: 45, dmg: 34, dmgPlayer: 30 };
 const LOCK_RANGE = 90, RADAR_KM = 150, PLAYER_HP = 120;
@@ -30,10 +31,14 @@ const mkRaider = () => loadInto(buildWarship(THREE), 'warship.glb',
   { lengthKm: 0.18, yaw: Math.PI, blinkers: 3, raider: true });
 
 export class Combat {
-  constructor({ scene, sim, fleet, shipView, ui, onPlayerDeath }) {
+  constructor({ scene, sim, fleet, shipView, ui, music, onPlayerDeath }) {
     this.scene = scene; this.sim = sim; this.fleet = fleet;
-    this.shipView = shipView; this.ui = ui; this.onPlayerDeath = onPlayerDeath;
+    this.shipView = shipView; this.ui = ui; this.music = music;
+    this.onPlayerDeath = onPlayerDeath;
+    this.sfx = new Sfx();
     this.enabled = false;
+    this.reticleHot = false;
+    this._musT = 0;
     this.agents = []; this.torps = []; this.beams = []; this.fx = [];
     this.beamPool = [];
     this.pending = []; this.drafted = [];
@@ -43,10 +48,12 @@ export class Combat {
     this.dmgFlash = 0; this.t = 0; this.raiderSeq = 0;
     // scratch
     this._v = new THREE.Vector3(); this._w = new THREE.Vector3();
+    this._u = new THREE.Vector3();
     this._q = new THREE.Quaternion(); this._p = { x: 0, y: 0, z: 0 };
     this.tgtEl = document.getElementById('tgt');
     this.tgtTxt = this.tgtEl.querySelector('small');
     this.dmgEl = document.getElementById('dmg');
+    this.retEl = document.getElementById('reticle');
     this.radarCv = document.getElementById('radarCv');
     this.radarCtx = this.radarCv.getContext('2d');
   }
@@ -63,6 +70,9 @@ export class Combat {
       this.invulnT = 2; this.waveT = 2.5; this.t = 0; this.raiderSeq = 0;
       const escorts = ['USS Defiant', 'USS Excalibur', 'USS Reliant'];
       this.pending = escorts.map((n, i) => ({ name: n, at: 3 + i * 3.5 }));
+      this.sfx.unlock();
+      this.sfx.alert();
+      if (this.music) this.music.armCombat();
       this.ui.toast('CONFLICT MODE — raiders inbound · G lasers · T torpedo · R target · K stand down', 6000);
     } else {
       for (const a of [...this.agents]) {
@@ -76,6 +86,8 @@ export class Combat {
       this.pending = []; this.lock = null;
       this.tgtEl.style.display = 'none';
       this.dmgFlash = 0; this.dmgEl.style.opacity = 0;
+      document.getElementById('reticle').classList.remove('hot');
+      if (this.music) this.music.stopCombat();
       this.ui.toast('Conflict mode off — sector stands down');
     }
   }
@@ -142,6 +154,15 @@ export class Combat {
     this.invulnT -= dt;
     this.dmgFlash = Math.max(0, this.dmgFlash - 1.7 * dt);
 
+    // threat level drives the Red Alert crossfade (nearest raider distance)
+    this._musT -= dt;
+    if (this._musT <= 0 && this.music) {
+      this._musT = 0.35;
+      let nd = Infinity;
+      for (const a of this.agents) if (a.side === 'foe') nd = Math.min(nd, this.distToShip(a.pos));
+      this.music.setCombatLevel(nd === Infinity ? 0 : Math.max(0, Math.min(1, (130 - nd) / 80)));
+    }
+
     // escort warp-ins
     for (const p of this.pending) if (!p.done && this.t >= p.at) { p.done = true; this.spawnFed(p.name); }
 
@@ -154,27 +175,45 @@ export class Combat {
     for (const a of this.agents) this.stepAgent(a, dt);
     this.agents = this.agents.filter(a => a.alive);
 
-    // player lock maintenance
+    // player lock maintenance (blip on a fresh acquisition)
+    const prevLock = this.lock;
     if (this.lock && (!this.lock.alive || this.distToShip(this.lock.pos) > LOCK_RANGE * 1.5)) this.lock = null;
     if (!this.lock) this.lock = this.nearestFoe(LOCK_RANGE);
+    if (this.lock && this.lock !== prevLock) this.sfx.lock();
 
-    // player lasers (hold G)
-    if (keys.has('KeyG') && this.cdL <= 0 && this.lock) {
+    // player firing solution (also drives the hot reticle)
+    const nose = this._v.set(0, 0, -1).applyQuaternion(this.shipView.quat);
+    let canHit = false;
+    if (this.lock) {
       const s = this.sim.ship, d = this.distToShip(this.lock.pos);
-      if (d <= LASER.range) {
-        const nose = this._v.set(0, 0, -1).applyQuaternion(this.shipView.quat);
-        const at = this._w.set(
-          this.lock.pos.x - s.pos.x, this.lock.pos.z - s.pos.z, -(this.lock.pos.y - s.pos.y)).normalize();
-        if (nose.dot(at) > LASER.cone) {
-          this.cdL = LASER.cd;
-          const right = fromRender(this._w.set(1, 0, 0).applyQuaternion(this.shipView.quat), this._v);
-          for (const sx of [-0.022, 0.022]) {
-            this.beam(
-              { x: s.pos.x + right.x * sx, y: s.pos.y + right.y * sx, z: s.pos.z + right.z * sx },
-              jitter(this.lock.pos, 0.04), [1.4, 2.6, 4.5]);
-          }
-          this.damage(this.lock, LASER.dmg, 'fed');
-        }
+      this._w.set(this.lock.pos.x - s.pos.x, this.lock.pos.z - s.pos.z, -(this.lock.pos.y - s.pos.y)).normalize();
+      canHit = d <= LASER.range && nose.dot(this._w) > LASER.cone;
+    }
+    this.reticleHot = canHit;
+
+    // player lasers (hold G) — the beams always show; damage needs the solution
+    if (keys.has('KeyG') && this.cdL <= 0) {
+      this.cdL = LASER.cd;
+      const s = this.sim.ship;
+      const np = fromRender(nose, this._u);            // nose direction, physics frame
+      const end = canHit ? jitter(this.lock.pos, 0.04) : {
+        x: s.pos.x + np.x * LASER.range,
+        y: s.pos.y + np.y * LASER.range,
+        z: s.pos.z + np.z * LASER.range,
+      };
+      const right = fromRender(this._w.set(1, 0, 0).applyQuaternion(this.shipView.quat), this._v);
+      for (const sx of [-0.05, 0.05]) {   // wingtip cannons — visibly separated in chase view
+        const muzzle = {
+          x: s.pos.x + right.x * sx + np.x * 0.06,
+          y: s.pos.y + right.y * sx + np.y * 0.06,
+          z: s.pos.z + right.z * sx + np.z * 0.06,
+        };
+        this.beam(muzzle, end, [1.6, 3, 5.5]);
+      }
+      this.sfx.laser(1);
+      if (canHit) {
+        this.damage(this.lock, LASER.dmg, 'fed');
+        this.boom(end, 0.12, 0.26);                    // impact spark on the hull
       }
     }
 
@@ -233,9 +272,13 @@ export class Combat {
     if (a.cLaser <= 0 && d < AI_LASER.range) {
       a.cLaser = a.side === 'foe' ? AI_LASER.cdFoe : AI_LASER.cdFed;
       const hit = Math.random() < Math.min(0.9, Math.max(0.18, 0.92 - d / 24));
-      const col = a.side === 'foe' ? [4.5, 0.9, 0.5] : [1.4, 2.6, 4.5];
+      const col = a.side === 'foe' ? [7, 1.3, 0.7] : [2, 4, 7];
       this.beam(a.pos, hit ? jitter(tp, 0.03) : jitter(tp, 1.4), col);
-      if (hit) this.damage(tgt, a.side === 'foe' ? AI_LASER.dmgFoe : AI_LASER.dmgFed, a.side);
+      this.sfx.laser(0.7 * this.att0(a.pos));
+      if (hit) {
+        this.damage(tgt, a.side === 'foe' ? AI_LASER.dmgFoe : AI_LASER.dmgFed, a.side);
+        this.boom(jitter(tp, 0.02), 0.1, 0.24);        // impact spark
+      }
     }
     if (a.cTorp <= 0 && d > 5 && d < 38) {
       a.cTorp = 9 + Math.random() * 5;
@@ -268,6 +311,7 @@ export class Combat {
       if (d < Math.max(TORP.fuse, vr * dt * 0.75)) {
         tp.alive = false; this.scene.remove(tp.mesh);
         this.boom(tp.pos, 0.7, 0.7);
+        this.sfx.boom(Math.max(0.25, this.att0(tp.pos)));
         this.damage(tgt, tgt === 'player' ? TORP.dmgPlayer : TORP.dmg, tp.side);
         return;
       }
@@ -309,6 +353,7 @@ export class Combat {
       pos: { x: from.x + dx * 0.12, y: from.y + dy * 0.12, z: from.z + dz * 0.12 },
       vel: { x: shooterVel.x + dx * TORP.speed, y: shooterVel.y + dy * TORP.speed, z: shooterVel.z + dz * TORP.speed },
     });
+    this.sfx.torp(Math.max(0.3, this.att0(from)));
   }
 
   damage(target, dmg, fromSide) {
@@ -316,8 +361,10 @@ export class Combat {
       if (this.invulnT > 0) return;
       this.playerHp -= dmg;
       this.dmgFlash = Math.min(1, this.dmgFlash + 0.55);
+      this.sfx.hit();
       if (this.playerHp <= 0) {
         this.boom(this.sim.ship.pos, 2.2, 1.4);
+        this.sfx.boom(1, true);
         this.playerHp = PLAYER_HP;
         this.invulnT = 6;
         this.onPlayerDeath();
@@ -329,6 +376,7 @@ export class Combat {
     if (target.hp > 0) return;
     target.alive = false;
     this.boom(target.pos, 1.1, 1.0);
+    this.sfx.boom(Math.max(0.25, this.att0(target.pos)), true);
     if (target === this.lock) this.lock = null;
     this.ui.removeLabel(target.name);
     if (target.side === 'foe') {
@@ -350,13 +398,16 @@ export class Combat {
   beam(a, b, rgb) {
     let mesh = this.beamPool.pop();
     if (!mesh) {
-      mesh = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({ transparent: true, toneMapped: false }));
+      mesh = new THREE.Mesh(beamGeo, new THREE.MeshBasicMaterial({
+        transparent: true, toneMapped: false,
+        blending: THREE.AdditiveBlending, depthWrite: false,   // glowing energy, not a solid rod
+      }));
       mesh.frustumCulled = false;
       this.scene.add(mesh);
     }
     mesh.visible = true;
     mesh.material.color.setRGB(rgb[0], rgb[1], rgb[2]);
-    this.beams.push({ a: { ...a }, b: { ...b }, t: 0, dur: 0.09, mesh });
+    this.beams.push({ a: { ...a }, b: { ...b }, t: 0, dur: 0.13, mesh });
   }
 
   boom(pos, r, dur, cold = false) {
@@ -374,24 +425,33 @@ export class Combat {
   }
 
   // place combat visuals relative to the focus (floating origin)
-  place(fPos) {
+  place(fPos, camera) {
     if (!this.enabled) return;
+    const camP = camera ? camera.position : null;
     for (const tp of this.torps) {
       this._p.x = tp.pos.x - fPos.x; this._p.y = tp.pos.y - fPos.y; this._p.z = tp.pos.z - fPos.z;
       toRender(this._p, tp.mesh.position);
     }
     for (const b of this.beams) {
       const m = b.mesh;
-      this._p.x = (b.a.x + b.b.x) / 2 - fPos.x;
-      this._p.y = (b.a.y + b.b.y) / 2 - fPos.y;
-      this._p.z = (b.a.z + b.b.z) / 2 - fPos.z;
-      toRender(this._p, m.position);
+      this._p.x = b.a.x - fPos.x; this._p.y = b.a.y - fPos.y; this._p.z = b.a.z - fPos.z;
+      toRender(this._p, this._u);                                  // A (render)
       this._p.x = b.b.x - b.a.x; this._p.y = b.b.y - b.a.y; this._p.z = b.b.z - b.a.z;
-      toRender(this._p, this._v);
+      toRender(this._p, this._v);                                  // A->B (render)
       const L = this._v.length() || 1e-6;
+      m.position.copy(this._u).addScaledVector(this._v, 0.5);
+      // fade only beams that slice right past the CAMERA — a 40 m-thick glow
+      // at arm's length would fill the screen (last frame's camera is fine)
+      let fade = 1;
+      if (camP) {
+        this._w.copy(this._u).sub(camP);
+        const s01 = Math.min(1, Math.max(0, -this._w.dot(this._v) / (L * L)));
+        const dNear = this._w.addScaledVector(this._v, s01).length();
+        fade = Math.min(1, dNear / 0.25);
+      }
       m.quaternion.setFromUnitVectors(FWDZ, this._v.multiplyScalar(1 / L));
-      m.scale.set(0.04, 0.04, L);
-      m.material.opacity = 1 - b.t / b.dur;
+      m.scale.set(0.012, 0.012, L);
+      m.material.opacity = (1 - b.t / b.dur) * fade;
     }
     for (const f of this.fx) {
       const k = f.t / f.dur, e = 1 - (1 - k) * (1 - k);
@@ -415,6 +475,7 @@ export class Combat {
     document.getElementById('h-kills').textContent = this.kills;
     document.getElementById('h-wave').textContent = this.wave || '—';
     this.dmgEl.style.opacity = (this.dmgFlash * 0.85).toFixed(3);
+    this.retEl.classList.toggle('hot', this.reticleHot);   // red = firing solution
 
     // target box, projected like the reticle
     if (this.lock && this.lock.alive) {
@@ -487,6 +548,9 @@ export class Combat {
     const s = this.sim.ship.pos;
     return Math.hypot(p.x - s.x, p.y - s.y, p.z - s.z);
   }
+
+  // sound attenuation by distance from the player's ship (0 beyond ~90 km)
+  att0(p) { return Math.max(0, 1 - this.distToShip(p) / 90); }
 
   nearestFoe(maxD) {
     const s = this.sim.ship.pos;

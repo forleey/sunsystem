@@ -1,0 +1,152 @@
+// Combat sound effects — synthesized live with Web Audio, no files.
+// Own AudioContext (independent of the music engine); every call is
+// try/catch-guarded so audio can never break the game loop. The context
+// unlocks on the first user gesture (K toggle / checkbox counts).
+export class Sfx {
+  constructor() { this.ctx = null; this.out = null; }
+
+  _c() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AC();
+      this.out = this.ctx.createGain();
+      this.out.gain.value = 0.5;
+      this.out.connect(this.ctx.destination);
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+    return this.ctx;
+  }
+
+  unlock() { try { this._c(); } catch (e) {} }
+
+  _env(g, t0, a, peak, d) {
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(peak, t0 + a);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+  }
+
+  _noise(dur) {
+    const ctx = this.ctx, len = Math.floor(ctx.sampleRate * dur);
+    const b = ctx.createBuffer(1, len, ctx.sampleRate);
+    const d = b.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = ctx.createBufferSource();
+    s.buffer = b;
+    return s;
+  }
+
+  // sharp descending zap, doubled an octave down
+  laser(vol = 1) {
+    if (!(vol > 0.05)) return;
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      const o = ctx.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(1500, t);
+      o.frequency.exponentialRampToValueAtTime(180, t + 0.16);
+      const g = ctx.createGain(); this._env(g, t, 0.004, 0.2 * vol, 0.18);
+      o.connect(g); g.connect(this.out); o.start(t); o.stop(t + 0.26);
+      const o2 = ctx.createOscillator(); o2.type = 'square';
+      o2.frequency.setValueAtTime(720, t);
+      o2.frequency.exponentialRampToValueAtTime(95, t + 0.12);
+      const g2 = ctx.createGain(); this._env(g2, t, 0.002, 0.09 * vol, 0.12);
+      o2.connect(g2); g2.connect(this.out); o2.start(t); o2.stop(t + 0.2);
+    } catch (e) {}
+  }
+
+  // torpedo launch: rising band-passed whoosh over a sinking sub tone
+  torp(vol = 1) {
+    if (!(vol > 0.05)) return;
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      const n = this._noise(0.6);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2.2;
+      bp.frequency.setValueAtTime(220, t);
+      bp.frequency.exponentialRampToValueAtTime(1400, t + 0.5);
+      const g = ctx.createGain(); this._env(g, t, 0.03, 0.28 * vol, 0.5);
+      n.connect(bp); bp.connect(g); g.connect(this.out); n.start(t);
+      const o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(150, t);
+      o.frequency.exponentialRampToValueAtTime(58, t + 0.45);
+      const g2 = ctx.createGain(); this._env(g2, t, 0.02, 0.16 * vol, 0.45);
+      o.connect(g2); g2.connect(this.out); o.start(t); o.stop(t + 0.55);
+    } catch (e) {}
+  }
+
+  // explosion: noise through a falling lowpass + sub thump
+  boom(vol = 1, big = false) {
+    if (!(vol > 0.04)) return;
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      const dur = big ? 1.1 : 0.55;
+      const n = this._noise(dur);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass';
+      lp.frequency.setValueAtTime(big ? 1800 : 1300, t);
+      lp.frequency.exponentialRampToValueAtTime(65, t + dur);
+      const g = ctx.createGain(); this._env(g, t, 0.012, (big ? 0.6 : 0.38) * vol, dur);
+      n.connect(lp); lp.connect(g); g.connect(this.out); n.start(t);
+      const o = ctx.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(big ? 85 : 70, t);
+      o.frequency.exponentialRampToValueAtTime(26, t + dur * 0.7);
+      const g2 = ctx.createGain(); this._env(g2, t, 0.01, 0.3 * vol, dur * 0.7);
+      o.connect(g2); g2.connect(this.out); o.start(t); o.stop(t + dur);
+    } catch (e) {}
+  }
+
+  // we've been hit: dull metallic thud
+  hit() {
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      const n = this._noise(0.16);
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 420;
+      const g = ctx.createGain(); this._env(g, t, 0.004, 0.34, 0.15);
+      n.connect(lp); lp.connect(g); g.connect(this.out); n.start(t);
+      const o = ctx.createOscillator(); o.type = 'triangle';
+      o.frequency.setValueAtTime(190, t);
+      o.frequency.exponentialRampToValueAtTime(70, t + 0.12);
+      const g2 = ctx.createGain(); this._env(g2, t, 0.003, 0.2, 0.13);
+      o.connect(g2); g2.connect(this.out); o.start(t); o.stop(t + 0.2);
+    } catch (e) {}
+  }
+
+  // target lock acquired: two quick blips
+  lock() {
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      for (const [dt, f] of [[0, 880], [0.09, 1318]]) {
+        const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+        const g = ctx.createGain(); this._env(g, t + dt, 0.004, 0.12, 0.07);
+        o.connect(g); g.connect(this.out); o.start(t + dt); o.stop(t + dt + 0.12);
+      }
+    } catch (e) {}
+  }
+
+  // escort warp-in: shimmering upward sweep
+  warp(vol = 1) {
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      for (const det of [-7, 0, 7]) {
+        const o = ctx.createOscillator(); o.type = 'sine'; o.detune.value = det * 3;
+        o.frequency.setValueAtTime(240, t);
+        o.frequency.exponentialRampToValueAtTime(1500, t + 0.55);
+        const g = ctx.createGain(); this._env(g, t, 0.06, 0.09 * vol, 0.6);
+        o.connect(g); g.connect(this.out); o.start(t); o.stop(t + 0.7);
+      }
+    } catch (e) {}
+  }
+
+  // red alert: two-tone klaxon
+  alert() {
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      for (let i = 0; i < 2; i++) {
+        const t0 = t + i * 0.42;
+        const o = ctx.createOscillator(); o.type = 'sawtooth';
+        o.frequency.setValueAtTime(392, t0);
+        o.frequency.linearRampToValueAtTime(587, t0 + 0.18);
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600;
+        const g = ctx.createGain(); this._env(g, t0, 0.02, 0.16, 0.34);
+        o.connect(lp); lp.connect(g); g.connect(this.out); o.start(t0); o.stop(t0 + 0.4);
+      }
+    } catch (e) {}
+  }
+}

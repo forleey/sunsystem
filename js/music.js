@@ -2,7 +2,7 @@
 // OpenRouter, see music_tracks.js); this synthesizes them with Web Audio —
 // no audio files, loops forever. The graph builder is BaseAudioContext-agnostic
 // so the whole engine can be verified with an OfflineAudioContext render.
-import { TRACKS } from './music_tracks.js?v=69';
+import { TRACKS } from './music_tracks.js?v=70';
 
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -101,15 +101,24 @@ export class Music {
     this.onTrackChange = onTrackChange || (() => {});
     this._live = [];
     this._timer = null;
+    this._ambientOn = false;
+    // combat layer: its own loop + gain, crossfaded by threat level
+    this._cGain = null; this._cBus = null; this._cTimer = null; this._cLive = [];
   }
   get title() { return TRACKS[this.idx].title; }
 
+  _ensureCtx() {
+    if (this.ctx) return;
+    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    this.master = buildMaster(this.ctx, this.ctx.destination);
+  }
+
   // must be called from a user gesture the first time (autoplay policy)
   start() {
-    if (!this.ctx) {
-      this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-      this.master = buildMaster(this.ctx, this.ctx.destination);
+    this._ensureCtx();
+    if (!this._ambientOn) {
       this._loop(this.ctx.currentTime + 0.15);
+      this._ambientOn = true;
     }
     this.ctx.resume();
     this.enabled = true;
@@ -136,14 +145,75 @@ export class Music {
       try { oldBus.disconnect(); } catch (e) {}
     }, 1500);
     this.master = buildMaster(this.ctx, this.ctx.destination);   // fresh bus + reverb
+    // the combat layer outlives track switches — re-hang it on the new master
+    if (this._cGain) {
+      try { this._cGain.disconnect(); } catch (e) {}
+      this._cGain.connect(this.master.out);
+    }
+  }
+
+  _nextIdx() {   // ambient rotation skips combat-only tracks
+    do { this.idx = (this.idx + 1) % TRACKS.length; } while (TRACKS[this.idx].combat);
   }
 
   next() {
-    if (!this.ctx) { this.idx = (this.idx + 1) % TRACKS.length; this.onTrackChange(this.title); return; }
+    if (!this.ctx) { this._nextIdx(); this.onTrackChange(this.title); return; }
     this._stopAll();
-    this.idx = (this.idx + 1) % TRACKS.length;
+    this._nextIdx();
     this._loop(this.ctx.currentTime + 0.4);
     this.onTrackChange(this.title);
+  }
+
+  // ---- combat layer (Red Alert): faded by threat level 0..1 ----
+  armCombat() {
+    this._ensureCtx();
+    this.ctx.resume();
+    if (!this._cGain) {
+      this._cGain = this.ctx.createGain();
+      this._cGain.gain.value = 0;
+      this._cGain.connect(this.master.out);
+      this._cBus = this.ctx.createGain();
+      this._cBus.connect(this._cGain);
+    }
+  }
+
+  _cLoop(at) {
+    const idx = TRACKS.findIndex(t => t.combat);
+    if (idx < 0) return;
+    const { nodes, loopDur } = scheduleTrack(this.ctx, this._cBus, TRACKS[idx], at);
+    this._cLive.push({ nodes, until: at + loopDur + 10 });
+    this._cLive = this._cLive.filter(l => l.until > this.ctx.currentTime);
+    const lead = (at + loopDur - this.ctx.currentTime - 2) * 1000;
+    this._cTimer = setTimeout(() => this._cLoop(at + loopDur), Math.max(250, lead));
+  }
+
+  // v=0: silent, v=1: full Red Alert; the ambient bed ducks in proportion
+  setCombatLevel(v) {
+    if (!(v > 0) && !this._cGain) return;
+    this.armCombat();
+    if (v > 0 && !this._cTimer) this._cLoop(this.ctx.currentTime + 0.2);
+    const now = this.ctx.currentTime;
+    this._cGain.gain.cancelScheduledValues(now);
+    this._cGain.gain.setValueAtTime(this._cGain.gain.value, now);
+    this._cGain.gain.linearRampToValueAtTime(v * 0.95, now + 1.4);
+    if (this._ambientOn) {
+      const b = this.master.bus.gain;
+      b.cancelScheduledValues(now);
+      b.setValueAtTime(b.value, now);
+      b.linearRampToValueAtTime(1 - 0.72 * v, now + 1.4);
+    }
+  }
+
+  stopCombat() {
+    if (!this._cGain) return;
+    this.setCombatLevel(0);
+    clearTimeout(this._cTimer);
+    this._cTimer = null;
+    const old = this._cLive;
+    this._cLive = [];
+    setTimeout(() => {
+      for (const l of old) for (const n of l.nodes) { try { n.disconnect(); } catch (e) {} }
+    }, 2600);
   }
 
   toggle() {

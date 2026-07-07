@@ -1,15 +1,15 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=69';
-import { Sim, V3 } from './physics.js?v=69';
-import { SystemView } from './bodies3d.js?v=69';
-import { ShipView } from './ship3d.js?v=69';
-import { UI } from './ui.js?v=69';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=69';
-import { Fleet } from './fleet.js?v=69';
-import { Music, renderTest } from './music.js?v=69';
-import { initEnvironment } from './models.js?v=69';
-import { Combat } from './combat.js?v=69';
+import { createStage, makeSky } from './scene.js?v=70';
+import { Sim, V3 } from './physics.js?v=70';
+import { SystemView } from './bodies3d.js?v=70';
+import { ShipView } from './ship3d.js?v=70';
+import { UI } from './ui.js?v=70';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=70';
+import { Fleet } from './fleet.js?v=70';
+import { Music, renderTest } from './music.js?v=70';
+import { initEnvironment } from './models.js?v=70';
+import { Combat } from './combat.js?v=70';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -205,19 +205,6 @@ for (const o of fleet.objects) {
 }
 ui.initLabels(anchors);
 
-// ---------- conflict mode (raider waves, lasers, torpedoes, radar) ----------
-const combat = new Combat({
-  scene: stage.scene, sim, fleet, shipView, ui,
-  onPlayerDeath: () => {
-    sim.resetShip();
-    bootAttitude();
-    applyFocus('Starship', false);
-    startArrival();
-    ui.toast('Hull breached — emergency beam-out to Earth orbit', 4200);
-  },
-});
-document.getElementById('c-combat').addEventListener('change', e => combat.setEnabled(e.target.checked));
-
 // ---------- input ----------
 const keys = new Set();
 const DIGITS = { Digit1: 'Sun', Digit2: 'Mercury', Digit3: 'Venus', Digit4: 'Earth', Digit5: 'Mars', Digit6: 'Jupiter', Digit7: 'Saturn', Digit8: 'Uranus', Digit9: 'Neptune', Digit0: 'Pluto' };
@@ -295,6 +282,20 @@ const musicKickoff = () => {
 window.addEventListener('pointerdown', musicKickoff, true);
 window.addEventListener('keydown', musicKickoff, true);
 
+// ---------- conflict mode (raider waves, lasers, torpedoes, radar) ----------
+// (the K/R/T keydown bindings above resolve this const at call time)
+const combat = new Combat({
+  scene: stage.scene, sim, fleet, shipView, ui, music,
+  onPlayerDeath: () => {
+    sim.resetShip();
+    bootAttitude();
+    applyFocus('Starship', false);
+    startArrival();
+    ui.toast('Hull breached — emergency beam-out to Earth orbit', 4200);
+  },
+});
+document.getElementById('c-combat').addEventListener('change', e => combat.setEnabled(e.target.checked));
+
 // panel controls steal keyboard focus after a click/drag — give it back to the helm.
 // selects only blur on change: blurring on pointerup would close the dropdown mid-pick
 for (const el of document.querySelectorAll('.panel input, .panel select, .panel button')) {
@@ -368,7 +369,7 @@ function frameBody(now) {
   }
   system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
   fleet.place(fPos, sim.time, dtWall);
-  combat.place(fPos);
+  combat.place(fPos, stage.camera);
 
   if (focusName === 'Starship') {
     // chase cam: sit aft-above of the hull, follow orientation with a soft lag
