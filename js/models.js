@@ -129,15 +129,16 @@ function playerPaint(root) {
     n.material = Array.isArray(n.material) ? n.material.map(m => m.clone()) : n.material.clone();
     const mats = Array.isArray(n.material) ? n.material : [n.material];
     for (const m of mats) {
-      const glowing = m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.2 && !m.map;
-      if (glowing) { m.userData._washed = true; continue; }
+      // drop the albedo map: removes painted hull lettering/markings + colour,
+      // leaving a clean colourless grey. Keep the emissive map (the ship lights).
+      if (m.map) m.map = null;
       if (m.color) {
         const c = m.color, lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
-        const v = 0.20 + lum * 0.16;           // dark grey ~0.20-0.36
-        c.setRGB(v, v * 1.01, v * 1.06);       // a hair cool
+        const v = 0.30 + lum * 0.14;           // neutral mid grey, no tint
+        c.setRGB(v, v, v);
       }
-      if ('metalness' in m) m.metalness = 0.74;
-      if ('roughness' in m) m.roughness = 0.3;  // glossier -> sharper env reflections
+      if ('metalness' in m) m.metalness = 0.6;
+      if ('roughness' in m) m.roughness = 0.34;
       m.userData._washed = true;
     }
   });

@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=79';
-import { C_KMS } from './data.js?v=79';
-import { loadModel } from './models.js?v=79';
+import { toRender } from './scene.js?v=80';
+import { C_KMS } from './data.js?v=80';
+import { loadModel } from './models.js?v=80';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -86,6 +86,11 @@ export class ShipView {
     const lamp = new THREE.PointLight(0x88bbff, 0, 0.6, 2);
     lamp.position.set(0, 0.02, 0.09);
     this.grp.add(lamp); this.lamp = lamp;   // on grp: survives the GLB swap
+    // soft self-fill from the ship's own lights: lifts the shadow side a touch
+    // out of pure silhouette (short range, so it barely touches anything else)
+    const selfLit = new THREE.PointLight(0xbcd6ff, 0.4, 0.5, 2);
+    selfLit.position.set(0, 0.02, 0);
+    this.grp.add(selfLit);
 
     // exhaust: bright nozzles + a plume that lengthens with throttle (the
     // schweif). Additive, added to grp so it survives the GLB swap. Rear = +Z.
@@ -191,6 +196,6 @@ export class ShipView {
     this.plumeHalo.position.set(0, 0.004, 0.05 + L * 0.55);
     this.plumeHalo.material.opacity = gl * 0.16 * pf;
     this.lamp.intensity = gl * 0.5;
-    for (const gr of this.grilles) gr.material.emissiveIntensity = 1.15 * pf;   // windows: steady, not throttle-driven
+    for (const gr of this.grilles) gr.material.emissiveIntensity = 2.4 * pf;   // ship lights: steady, brighter self-glow
   }
 }
