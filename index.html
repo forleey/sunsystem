@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sol System — N-Body Simulator</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=77">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=78">
 <meta name="theme-color" content="#02040a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -152,33 +152,13 @@
   body:not(.title) #title{display:none;}
   body.title :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#toast){display:none !important;}
   #titleInner{text-align:center; transform:translateY(-4vh); padding:0 20px;}
-  /* animated game logo: staggered letter entrance, glow pulse, shine sweep */
-  #logo{position:relative; display:inline-block;
-    font-family:'Orbitron','SF Mono',ui-monospace,monospace; font-weight:900;
-    font-size:clamp(46px, 7.6vw, 100px); letter-spacing:.14em; margin-right:-.14em;
-    filter:drop-shadow(0 0 16px rgba(106,209,255,.22));
-    animation:logoPulse 4.4s ease-in-out 2s infinite;}
-  #logo span{display:inline-block; color:transparent;
-    background:linear-gradient(180deg, #f4fbff 10%, #9fdcff 44%, #2f86c0 76%, #123f63 96%);
-    -webkit-background-clip:text; background-clip:text;
-    opacity:0; transform:translateY(.42em) scale(1.22);
-    animation:letterIn .8s cubic-bezier(.18,.9,.28,1) forwards;
-    animation-delay:calc(.25s + var(--i)*.06s);}
-  @keyframes letterIn{
-    60%{opacity:1;}
-    100%{opacity:1; transform:none;}}
-  @keyframes logoPulse{
-    0%,100%{filter:drop-shadow(0 0 16px rgba(106,209,255,.22));}
-    50%{filter:drop-shadow(0 0 36px rgba(106,209,255,.52));}}
-  #logo::after{content:attr(data-text); position:absolute; inset:0; pointer-events:none;
-    color:transparent; -webkit-background-clip:text; background-clip:text;
-    background-image:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.9) 50%, transparent 58%);
-    background-size:280% 100%; background-repeat:no-repeat; background-position:-120% 0;
-    animation:logoShine 5.6s ease-in-out 2.4s infinite;}
-  @keyframes logoShine{
-    0%{background-position:-120% 0;}
-    28%{background-position:220% 0;}
-    100%{background-position:220% 0;}}
+  /* game logo: elaborate inline-SVG chrome wordmark (markup in #title) */
+  #logo{display:block; width:clamp(330px, 68vw, 780px); height:auto; margin:0 auto;
+    animation:logoIn 1s cubic-bezier(.16,.9,.24,1) both, logoGlow 4.6s ease-in-out 1.7s infinite;}
+  @keyframes logoIn{ from{opacity:0; transform:translateY(18px) scale(.93);} to{opacity:1; transform:none;} }
+  @keyframes logoGlow{
+    0%,100%{filter:drop-shadow(0 5px 12px rgba(0,0,0,.75)) drop-shadow(0 0 15px rgba(106,209,255,.16));}
+    50%{filter:drop-shadow(0 5px 12px rgba(0,0,0,.75)) drop-shadow(0 0 34px rgba(106,209,255,.5));}}
   #tagline{font-family:'Orbitron','SF Mono',ui-monospace,monospace; font-weight:500;
     color:var(--dim); letter-spacing:.52em; margin-right:-.52em; text-transform:uppercase;
     font-size:clamp(10px, 1.1vw, 13px); margin-top:14px; margin-bottom:56px;
@@ -218,7 +198,59 @@
 
 <div id="title">
   <div id="titleInner">
-    <h2 id="logo" data-text="STARBLAZER" aria-label="Starblazer"><span style="--i:0">S</span><span style="--i:1">T</span><span style="--i:2">A</span><span style="--i:3">R</span><span style="--i:4">B</span><span style="--i:5">L</span><span style="--i:6">A</span><span style="--i:7">Z</span><span style="--i:8">E</span><span style="--i:9">R</span></h2>
+    <svg id="logo" viewBox="0 0 1200 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Starblazer">
+      <defs>
+        <style>.wm{font-family:'Orbitron','SF Mono',sans-serif; font-weight:900; font-size:132px; letter-spacing:4px;}</style>
+        <linearGradient id="lgChrome" gradientUnits="userSpaceOnUse" x1="0" y1="56" x2="0" y2="212">
+          <stop offset="0" stop-color="#f6fcff"/><stop offset=".28" stop-color="#b6e3ff"/>
+          <stop offset=".49" stop-color="#4f9fda"/><stop offset=".51" stop-color="#1c5b89"/>
+          <stop offset=".72" stop-color="#164f79"/><stop offset="1" stop-color="#0b3556"/>
+        </linearGradient>
+        <linearGradient id="lgSteel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#1a415d"/><stop offset="1" stop-color="#05101a"/>
+        </linearGradient>
+        <linearGradient id="lgHi" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#ffffff" stop-opacity=".85"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="lgStreak" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#6ad1ff" stop-opacity="0"/><stop offset=".5" stop-color="#8fe0ff" stop-opacity=".9"/>
+          <stop offset="1" stop-color="#6ad1ff" stop-opacity="0"/>
+        </linearGradient>
+        <linearGradient id="lgShine" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".46" stop-color="#fff" stop-opacity="0"/>
+          <stop offset=".5" stop-color="#fff" stop-opacity=".95"/><stop offset=".54" stop-color="#fff" stop-opacity="0"/>
+          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+        </linearGradient>
+        <text id="lgWm" class="wm" x="600" y="184" text-anchor="middle">STARBLAZER</text>
+        <clipPath id="lgClip"><use href="#lgWm"/></clipPath>
+      </defs>
+      <g transform="translate(600,132) skewX(-7) translate(-600,-132)">
+        <!-- speed streak -->
+        <polygon points="80,214 1120,166 1120,175 80,223" fill="url(#lgStreak)" opacity=".6"/>
+        <circle cx="1120" cy="170" r="6" fill="#d5f1ff"/><circle cx="1120" cy="170" r="12" fill="#6ad1ff" opacity=".35"/>
+        <!-- 3D extrusion: stacked offset copies -->
+        <g fill="url(#lgSteel)">
+          <use href="#lgWm" transform="translate(1.4,3.6)"/><use href="#lgWm" transform="translate(2.8,7.2)"/>
+          <use href="#lgWm" transform="translate(4.2,10.8)"/><use href="#lgWm" transform="translate(5.6,14.4)"/>
+          <use href="#lgWm" transform="translate(7,18)"/><use href="#lgWm" transform="translate(8.4,21.6)"/>
+          <use href="#lgWm" transform="translate(9.8,25.2)"/><use href="#lgWm" transform="translate(11.2,28.8)"/>
+        </g>
+        <!-- face -->
+        <use href="#lgWm" fill="url(#lgChrome)" stroke="#e3f4ff" stroke-width="1.1"/>
+        <!-- top spec highlight, clipped to the glyphs -->
+        <g clip-path="url(#lgClip)"><rect x="0" y="54" width="1200" height="66" fill="url(#lgHi)" opacity=".55"/></g>
+        <!-- sweeping shine, clipped to the glyphs -->
+        <g clip-path="url(#lgClip)">
+          <rect x="-460" y="44" width="360" height="184" fill="url(#lgShine)">
+            <animate id="lgShn" attributeName="x" values="-460;1200" dur="4.6s" begin="1.5s;lgShn.end+3.2s" fill="freeze"/>
+          </rect>
+        </g>
+        <!-- sparkles -->
+        <path d="M1030,66 l2.4,7 7,2.4 -7,2.4 -2.4,7 -2.4,-7 -7,-2.4 7,-2.4 Z" fill="#eaf7ff"/>
+        <path d="M1088,44 l1.7,5 5,1.7 -5,1.7 -1.7,5 -1.7,-5 -5,-1.7 5,-1.7 Z" fill="#cdeeff"/>
+        <path d="M150,64 l1.5,4.4 4.4,1.5 -4.4,1.5 -1.5,4.4 -1.5,-4.4 -4.4,-1.5 4.4,-1.5 Z" fill="#dff2ff"/>
+      </g>
+    </svg>
     <p id="tagline">A living Sol system</p>
     <div id="modes">
       <button class="mode" id="m-free"><b>Free Mode</b></button>
@@ -325,6 +357,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=77"></script>
+<script type="module" src="./js/main.js?v=78"></script>
 </body>
 </html>
