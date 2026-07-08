@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=85';
-import { Sim, V3 } from './physics.js?v=85';
-import { SystemView } from './bodies3d.js?v=85';
-import { ShipView } from './ship3d.js?v=85';
-import { UI } from './ui.js?v=85';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=85';
-import { Fleet } from './fleet.js?v=85';
-import { Music, renderTest } from './music.js?v=85';
-import { initEnvironment } from './models.js?v=85';
-import { Combat } from './combat.js?v=85';
-import { Sfx } from './sfx.js?v=85';
-import { Editor } from './editor.js?v=85';
+import { createStage, makeSky } from './scene.js?v=86';
+import { Sim, V3 } from './physics.js?v=86';
+import { SystemView } from './bodies3d.js?v=86';
+import { ShipView } from './ship3d.js?v=86';
+import { UI } from './ui.js?v=86';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=86';
+import { Fleet } from './fleet.js?v=86';
+import { Music, renderTest } from './music.js?v=86';
+import { initEnvironment } from './models.js?v=86';
+import { Combat } from './combat.js?v=86';
+import { Sfx } from './sfx.js?v=86';
+import { Editor } from './editor.js?v=86';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -353,6 +353,7 @@ function hudExtra() {
 const fPos = new V3();
 let last = performance.now();
 let apWarp = 1;
+let engEnv = 0;   // engine-sound envelope: ramps up the longer Space is held, fades on release
 // menu beauty shot: camera rides the hull while the ship "flies"
 let titleT = 0;
 const titleQ = new THREE.Quaternion();
@@ -397,9 +398,11 @@ function frameBody(now) {
   focusPos(fPos);
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
 
-  // engine bed: volume is keyed directly to the (lagged) nozzle glow, so the
-  // rumble rises and fades out exactly with the visible exhaust brightness.
-  sfx.engine(shipView.glow);
+  // engine bed: volume is keyed to how long thrust is held, not to throttle.
+  // Holding Space ramps it up over ~1.8 s; releasing fades it over ~1.1 s.
+  const holdingThrust = keys.has('Space') || !!sim.ship.autopilot;
+  engEnv = Math.max(0, Math.min(1, engEnv + (holdingThrust ? dtWall / 1.8 : -dtWall / 1.1)));
+  sfx.engine(engEnv);
   if (arrivalT >= 0) {
     arrivalT += dtWall / ARRIVE_S;
     if (arrivalT >= 1) arrivalT = -1;                    // lands on exactly zero — no snap

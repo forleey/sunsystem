@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=85';
-import { C_KMS } from './data.js?v=85';
-import { loadModel } from './models.js?v=85';
+import { toRender } from './scene.js?v=86';
+import { C_KMS } from './data.js?v=86';
+import { loadModel } from './models.js?v=86';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -46,6 +46,9 @@ export class ShipView {
     this.tmpV = new THREE.Vector3();
     this.angVel = new THREE.Vector3();   // local pitch/yaw/roll rates, rad/s (rotational inertia)
     this.glow = 0;                       // throttle glow, lagged (afterburner feel)
+    this.selfGlow = 1.7;                 // ship-light emissive level (editor-tunable)
+    this.exhaustMul = 1;                 // exhaust brightness multiplier (editor-tunable)
+    this.exhaustColor = new THREE.Color(1, 1, 1);   // exhaust tint, multiplies base (editor-tunable)
   }
 
   buildMesh() {
@@ -108,7 +111,7 @@ export class ShipView {
     // out of pure silhouette (short range, so it barely touches anything else)
     const selfLit = new THREE.PointLight(0xbcd6ff, 0.4, 0.5, 2);
     selfLit.position.set(0, 0.02, 0);
-    this.grp.add(selfLit);
+    this.grp.add(selfLit); this.selfLit = selfLit;   // editor-tunable fill
 
     // exhaust: soft additive glow sprites (heavily blurred, no hard edges) for
     // the nozzles and the plume/schweif. Billboarded, on grp so they survive
@@ -132,6 +135,9 @@ export class ShipView {
     for (let i = 0; i < 7; i++) { const p = spr(0.9 - i * 0.02, 1.5 - i * 0.05, 3 - i * 0.16); ex.add(p); this.puffs.push(p); }
     this.plumeHalo = spr(0.5, 1.0, 2.2); this.plumeHalo.position.set(0, 0.004, 0.055); ex.add(this.plumeHalo);
     this.grp.add(ex);
+    // remember each sprite's base colour so the editor tint can multiply it
+    this.exAll = [...this.noz, ...this.puffs, this.plumeHalo];
+    for (const s of this.exAll) s.userData.base = s.material.color.clone();
   }
 
   // swap in the hero GLB; the throttle-glow loop in update() then drives the
@@ -155,7 +161,7 @@ export class ShipView {
     const dt = Math.min(dtWall, 0.05);
     // rotational inertia: keys command angular acceleration; releasing lets the
     // ship keep turning while RCS-style damping bleeds the rate back to zero
-    const ACC = 4.4, MAX = 1.5, DAMP = 3.2, av = this.angVel;
+    const ACC = 6.5, MAX = 1.7, DAMP = 7.0, av = this.angVel;   // low inertia: snappy in, quick settle
     const SPD = { x: 0.5, y: 0.5, z: 1 };   // pitch/yaw at half rate, roll unchanged
     const inp = {
       x: (keys.has('KeyS') || keys.has('ArrowDown') ? 1 : 0) - (keys.has('KeyW') || keys.has('ArrowUp') ? 1 : 0),
@@ -210,7 +216,8 @@ export class ShipView {
     const rate = target > this.glow ? 6 : 2.2;
     this.glow += (target - this.glow) * (1 - Math.exp(-rate * dt));
     const gl = this.glow, pf = 0.85 + 0.15 * Math.sin(performance.now() * 0.03);
-    for (const n of this.noz) { const s = 0.022 + gl * 0.026; n.scale.set(s, s, 1); n.material.opacity = (0.1 + gl * 0.5) * pf; }
+    const em = this.exhaustMul;
+    for (const n of this.noz) { const s = 0.022 + gl * 0.026; n.scale.set(s, s, 1); n.material.opacity = (0.1 + gl * 0.5) * pf * em; }
     const len = 0.04 + gl * 0.16;                                 // schweif length grows with throttle
     const step = len / this.puffs.length;
     for (let i = 0; i < this.puffs.length; i++) {
@@ -218,12 +225,13 @@ export class ShipView {
       p.position.set(0, 0.004, 0.055 + (i + 0.5) * step);
       const s = (0.05 - f * 0.028) * (0.5 + gl * 0.55);
       p.scale.set(s, s, 1);
-      p.material.opacity = gl * (1 - f) * 0.4 * pf;
+      p.material.opacity = gl * (1 - f) * 0.4 * pf * em;
     }
     const hs = 0.05 + gl * 0.035;
     this.plumeHalo.scale.set(hs, hs, 1);
-    this.plumeHalo.material.opacity = gl * 0.32 * pf;
+    this.plumeHalo.material.opacity = gl * 0.32 * pf * em;
     this.lamp.intensity = gl * 0.5;
-    for (const gr of this.grilles) gr.material.emissiveIntensity = 1.7 * pf;   // ship lights: steady self-glow (not blown out)
+    for (const s of this.exAll) s.material.color.copy(s.userData.base).multiply(this.exhaustColor);   // editor tint
+    for (const gr of this.grilles) gr.material.emissiveIntensity = this.selfGlow * pf;   // ship lights (editor-tunable)
   }
 }

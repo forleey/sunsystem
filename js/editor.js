@@ -30,7 +30,7 @@ export class Editor {
   // resolve a clicked label name to an editable target
   select(name) {
     const fo = this.fleet.byName.get(name);
-    if (name === 'Starship') this.sel = { type: 'mat', name: 'Starship', root: this.shipView.grp };
+    if (name === 'Starship') this.sel = { type: 'mat', name: 'Starship', root: this.shipView.grp, ship: true };
     else if (fo) this.sel = { type: 'mat', name, root: fo.grp };
     else {
       const e = this.system.entries.find(en => en.body.name === name);
@@ -83,6 +83,12 @@ export class Editor {
     if (!this.enabled) return;
     this.body.innerHTML = '';
 
+    // quick-select for objects whose label can't be clicked in flight (the ship)
+    const q = document.createElement('button');
+    q.textContent = 'Select Starship'; q.style.marginBottom = '8px';
+    q.addEventListener('click', () => this.select('Starship'));
+    this.body.appendChild(q);
+
     // GLOBAL grade + bloom (always available)
     this._sec('Global · Bloom & Grade');
     const bloom = this.stage.bloom, r = this.stage.renderer, film = this.stage.film.material.uniforms;
@@ -133,6 +139,15 @@ export class Editor {
           v => { for (const m of mats) if ('metalness' in m) m.metalness = v; });
         this._slider('Roughness', 0, 1, 0.01, () => rep.roughness ?? 1,
           v => { for (const m of mats) if ('roughness' in m) m.roughness = v; });
+        if (s.ship) {
+          const sv = this.shipView;
+          this._sec('Starship · lights & exhaust');
+          this._slider('Ship-light glow', 0, 5, 0.05, () => sv.selfGlow, v => { sv.selfGlow = v; });
+          this._slider('Fill light', 0, 2, 0.02, () => sv.selfLit.intensity, v => { sv.selfLit.intensity = v; });
+          this._color('Fill light colour', () => hex(sv.selfLit.color), h => sv.selfLit.color.set(h));
+          this._slider('Exhaust brightness', 0, 2.5, 0.02, () => sv.exhaustMul, v => { sv.exhaustMul = v; });
+          this._color('Exhaust tint', () => hex(sv.exhaustColor), h => sv.exhaustColor.set(h));
+        }
       }
     }
 
@@ -180,6 +195,12 @@ export class Editor {
         + ' emissive=' + (rep.emissive ? hex(rep.emissive) : 'n/a')
         + ' emissiveIntensity=' + (rep.emissiveIntensity ?? 1).toFixed(2)
         + ' metalness=' + (rep.metalness ?? 0).toFixed(2) + ' roughness=' + (rep.roughness ?? 1).toFixed(2));
+      if (s.ship) {
+        const sv = this.shipView;
+        L.push('Starship shipGlow=' + sv.selfGlow.toFixed(2) + ' fillLight=' + sv.selfLit.intensity.toFixed(2)
+          + ' fillColour=' + hex(sv.selfLit.color) + ' exhaustBright=' + sv.exhaustMul.toFixed(2)
+          + ' exhaustTint=' + hex(sv.exhaustColor));
+      }
     }
     this.ta.value = L.join('\n');
   }
