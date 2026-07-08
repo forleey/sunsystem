@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=81';
-import { Sim, V3 } from './physics.js?v=81';
-import { SystemView } from './bodies3d.js?v=81';
-import { ShipView } from './ship3d.js?v=81';
-import { UI } from './ui.js?v=81';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=81';
-import { Fleet } from './fleet.js?v=81';
-import { Music, renderTest } from './music.js?v=81';
-import { initEnvironment } from './models.js?v=81';
-import { Combat } from './combat.js?v=81';
-import { Sfx } from './sfx.js?v=81';
-import { Editor } from './editor.js?v=81';
+import { createStage, makeSky } from './scene.js?v=82';
+import { Sim, V3 } from './physics.js?v=82';
+import { SystemView } from './bodies3d.js?v=82';
+import { ShipView } from './ship3d.js?v=82';
+import { UI } from './ui.js?v=82';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=82';
+import { Fleet } from './fleet.js?v=82';
+import { Music, renderTest } from './music.js?v=82';
+import { initEnvironment } from './models.js?v=82';
+import { Combat } from './combat.js?v=82';
+import { Sfx } from './sfx.js?v=82';
+import { Editor } from './editor.js?v=82';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -307,6 +307,8 @@ const combat = new Combat({
   },
 });
 
+window.__combat = combat; window.__sim = sim;   // TEMP debug probe: remove after verification
+
 // ---------- start screen: STARBLAZER mode select ----------
 function showTitle() {
   document.body.classList.add('title');
@@ -395,9 +397,12 @@ function frameBody(now) {
   focusPos(fPos);
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
 
-  // engine bed: a subtle rumble that follows the burn (all modes)
+  // engine bed: a subtle rumble that fades in with the throttle (Space held or
+  // autopilot) and fades back out the moment thrust is cut. It deliberately
+  // ignores the retro-burn (braking), so releasing Space quiets the engine,
+  // matching the exhaust glow which also keys off thrustAcc.
   const shp = sim.ship;
-  const burning = shp.thrustAcc > 0 || shp.braking || shp.autopilot;
+  const burning = shp.thrustAcc > 0 || shp.autopilot;
   sfx.engine(burning ? Math.max(0.45, shp.autopilot ? 1 : shp.throttle) : 0);
   if (arrivalT >= 0) {
     arrivalT += dtWall / ARRIVE_S;
@@ -467,7 +472,7 @@ function frameBody(now) {
 
 // ---- visual look: adjustable and persistable as default (localStorage) ----
 const LOOK_KEY = 'sunsystem-look-v1';
-const LOOK_DEF = { bloom: 0.15, exposure: 1.15, contrast: 1.045, saturation: 1.07, grain: 1, vignette: 1, film: true };
+const LOOK_DEF = { bloom: 0.04, exposure: 0.80, contrast: 0.955, saturation: 1.07, grain: 1, vignette: 1, film: true };
 const look = { ...LOOK_DEF, ...(JSON.parse(localStorage.getItem(LOOK_KEY) || 'null') || {}) };
 const filmU = stage.film.material.uniforms;
 const LOOK_BIND = [

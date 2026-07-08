@@ -1,11 +1,11 @@
 // Meshes for sun, planets, trails, Andromeda. Positions set each frame relative to focus.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=81';
-import { ANDROMEDA } from './data.js?v=81';
+import { toRender } from './scene.js?v=82';
+import { ANDROMEDA } from './data.js?v=82';
 import {
   SUN_V, SUN_F, CORONA_V, CORONA_F, GLARE_F, PLANET_V, PLANET_F, PLANET_DEFS_PRE,
   ATMO_V, ATMO_F, RING_V, RING_F, GALAXY_V, GALAXY_F, logDepth,
-} from './shaders.js?v=81';
+} from './shaders.js?v=82';
 
 const TYPE_DEF = { rock: 'TYPE_ROCK', gas: 'TYPE_GAS', ice: 'TYPE_ICE', earth: 'TYPE_EARTH', venus: 'TYPE_VENUS', moon: 'TYPE_MOON' };
 
@@ -30,7 +30,7 @@ function upgradeTex(uniform, file) {
   }, undefined, () => {});   // keep 2K on failure
 }
 const ATMO = {
-  Earth: [0x4d9aff, 1.025], Venus: [0xe8c79a, 1.03], Mars: [0xd88a5a, 1.02],
+  Earth: [0x07080a, 1.025], Venus: [0xe8c79a, 1.03], Mars: [0xd88a5a, 1.02],
   Jupiter: [0xd8b890, 1.012], Saturn: [0xe8d8a8, 1.012], Uranus: [0xa8e0dc, 1.015], Neptune: [0x5a78d8, 1.015], Titan: null,
 };
 
@@ -76,10 +76,10 @@ export class SystemView {
     scene.add(sunGrp);
     // hot sun: the point light only drives standard materials (ships &
     // stations — planets shade themselves), so this cranks THEIR lit sides
-    this.light = new THREE.PointLight(0xfff2dd, 3.6, 0, 0);
+    this.light = new THREE.PointLight(0xfff2dd, 0.95, 0, 0);
     sunGrp.add(this.light);
     // shadow floor ~zero: unlit sides read as pure silhouette
-    scene.add(new THREE.AmbientLight(0x32404f, 0.006));
+    scene.add(new THREE.AmbientLight(0x32404f, 0.016));
     this.entries.push({ body: sun, grp: sunGrp, mesh: sunMesh, isSun: true, spin: 2.13e6 });
 
     for (const b of sim.bodies.slice(1)) this.addPlanet(b);

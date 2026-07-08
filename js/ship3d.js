@@ -1,25 +1,30 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=81';
-import { C_KMS } from './data.js?v=81';
-import { loadModel } from './models.js?v=81';
+import { toRender } from './scene.js?v=82';
+import { C_KMS } from './data.js?v=82';
+import { loadModel } from './models.js?v=82';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
 const HULL = new THREE.MeshStandardMaterial({ color: 0xccd3dd, metalness: 0.45, roughness: 0.4 });
 const DARK = new THREE.MeshStandardMaterial({ color: 0x6b7480, metalness: 0.6, roughness: 0.5 });
 
-// soft radial glow: a blurred white falloff for the additive engine sprites
+// soft radial glow for the additive engine sprites. Per-pixel Gaussian that
+// hits exactly zero at the disc edge (and the quad corners), so the additive
+// blob can never show a square boundary or bloom into a box.
 const GLOW_TEX = (() => {
-  const c = document.createElement('canvas'); c.width = c.height = 128;
-  const x = c.getContext('2d');
-  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
-  g.addColorStop(0, 'rgba(255,255,255,1)');
-  g.addColorStop(0.18, 'rgba(255,255,255,0.55)');
-  g.addColorStop(0.5, 'rgba(255,255,255,0.12)');
-  g.addColorStop(1, 'rgba(255,255,255,0)');
-  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const N = 128, c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d'), img = x.createImageData(N, N), d = img.data;
+  for (let yy = 0; yy < N; yy++) for (let xx = 0; xx < N; xx++) {
+    const dx = (xx - (N - 1) / 2) / ((N - 1) / 2), dy = (yy - (N - 1) / 2) / ((N - 1) / 2);
+    const r = Math.hypot(dx, dy);
+    const a = Math.exp(-r * r * 3.4) * Math.max(0, 1 - r);   // round, zero at r>=1
+    const i = (yy * N + xx) * 4;
+    d[i] = d[i + 1] = d[i + 2] = 255;
+    d[i + 3] = Math.round(Math.min(1, Math.max(0, a)) * 255);
+  }
+  x.putImageData(img, 0, 0);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 })();
 
@@ -205,7 +210,7 @@ export class ShipView {
     const rate = target > this.glow ? 6 : 2.2;
     this.glow += (target - this.glow) * (1 - Math.exp(-rate * dt));
     const gl = this.glow, pf = 0.85 + 0.15 * Math.sin(performance.now() * 0.03);
-    for (const n of this.noz) { const s = 0.022 + gl * 0.028; n.scale.set(s, s, 1); n.material.opacity = (0.12 + gl * 0.8) * pf; }
+    for (const n of this.noz) { const s = 0.022 + gl * 0.026; n.scale.set(s, s, 1); n.material.opacity = (0.1 + gl * 0.5) * pf; }
     const len = 0.04 + gl * 0.16;                                 // schweif length grows with throttle
     const step = len / this.puffs.length;
     for (let i = 0; i < this.puffs.length; i++) {
@@ -213,12 +218,12 @@ export class ShipView {
       p.position.set(0, 0.004, 0.055 + (i + 0.5) * step);
       const s = (0.05 - f * 0.028) * (0.5 + gl * 0.55);
       p.scale.set(s, s, 1);
-      p.material.opacity = gl * (1 - f) * 0.5 * pf;
+      p.material.opacity = gl * (1 - f) * 0.4 * pf;
     }
-    const hs = 0.045 + gl * 0.03;
+    const hs = 0.05 + gl * 0.035;
     this.plumeHalo.scale.set(hs, hs, 1);
-    this.plumeHalo.material.opacity = gl * 0.5 * pf;
+    this.plumeHalo.material.opacity = gl * 0.32 * pf;
     this.lamp.intensity = gl * 0.5;
-    for (const gr of this.grilles) gr.material.emissiveIntensity = 2.4 * pf;   // ship lights: steady, brighter self-glow
+    for (const gr of this.grilles) gr.material.emissiveIntensity = 1.7 * pf;   // ship lights: steady self-glow (not blown out)
   }
 }

@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=81';
-import { fmtKm } from './data.js?v=81';
-import { loadInto } from './models.js?v=81';
-import { buildWarship } from './fleet_meshes.js?v=81';
-import { fromRender } from './ship3d.js?v=81';
-import { Sfx } from './sfx.js?v=81';
+import { toRender } from './scene.js?v=82';
+import { fmtKm } from './data.js?v=82';
+import { loadInto } from './models.js?v=82';
+import { buildWarship } from './fleet_meshes.js?v=82';
+import { fromRender } from './ship3d.js?v=82';
+import { Sfx } from './sfx.js?v=82';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
@@ -41,6 +41,7 @@ export class Combat {
     this._musT = 0;
     this.agents = []; this.torps = []; this.beams = []; this.fx = [];
     this.beamPool = [];
+    this.animPool = [];   // reusable explosion-flipbook sprites
     this.pending = []; this.drafted = [];
     this.lock = null;
     this.playerHp = PLAYER_HP; this.kills = 0; this.wave = 0;
@@ -370,6 +371,7 @@ export class Combat {
       return;
     }
     if (!target || !target.alive) return;
+    this.sfx.impact(Math.max(0.3, this.att0(target.pos)));   // hit-confirm: a shot landed on a live enemy
     target.hp -= dmg;
     if (target.hp > 0) return;
     target.alive = false;
@@ -409,21 +411,40 @@ export class Combat {
   }
 
   boom(pos, r, dur, cold = false) {
-    const core = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({
-      transparent: true, toneMapped: false,
-      color: cold ? new THREE.Color(5, 6.5, 9) : new THREE.Color(9, 7, 4),
-    }));
-    const shell = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({
-      transparent: true, toneMapped: false,
-      color: cold ? new THREE.Color(1.2, 2.2, 4) : new THREE.Color(4.5, 1.2, 0.3),
-    }));
-    core.frustumCulled = shell.frustumCulled = false;
-    this.scene.add(core); this.scene.add(shell);
-    // real explosions (not laser sparks) get a billboarded shockwave ring and
-    // a burst of flung embers
     const big = r >= 0.5;
-    let ring = null; const embers = [];
+    // small laser sparks stay cheap + procedural; big hits get the flipbook
+    // fireball instead of the solid core/shell (which would blow out over it)
+    let core = null, shell = null;
+    if (!big) {
+      core = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({
+        transparent: true, toneMapped: false,
+        color: cold ? new THREE.Color(5, 6.5, 9) : new THREE.Color(9, 7, 4),
+      }));
+      shell = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({
+        transparent: true, toneMapped: false,
+        color: cold ? new THREE.Color(1.2, 2.2, 4) : new THREE.Color(4.5, 1.2, 0.3),
+      }));
+      core.frustumCulled = shell.frustumCulled = false;
+      this.scene.add(core); this.scene.add(shell);
+    }
+    // real explosions get the flipbook fireball, a billboarded shockwave ring
+    // and a burst of flung embers
+    let ring = null, anim = null; const embers = [];
     if (big) {
+      anim = this.animPool.pop();
+      if (!anim) {
+        const tex = exploTex.clone();
+        tex.repeat.set(1 / EXPLO_COLS, 1 / EXPLO_ROWS);
+        anim = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: tex, transparent: true, depthWrite: false, toneMapped: false,
+          blending: THREE.AdditiveBlending,
+        }));
+        anim.frustumCulled = false;
+        this.scene.add(anim);
+      }
+      anim.visible = true;
+      anim.material.color.copy(cold ? EXPLO_COLD : EXPLO_WARM);
+      anim.material.rotation = Math.random() * Math.PI * 2;   // vary so repeats don't twin
       ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
         transparent: true, toneMapped: false, side: THREE.DoubleSide, depthWrite: false,
         color: cold ? new THREE.Color(2, 4, 7) : new THREE.Color(7, 3.2, 0.8),
@@ -438,13 +459,14 @@ export class Combat {
         embers.push({ mesh: em, dir: randDir(), sp: r * (0.7 + Math.random() * 1.9) });
       }
     }
-    this.fx.push({ pos: { ...pos }, t: 0, dur, r, core, shell, ring, embers });
+    this.fx.push({ pos: { ...pos }, t: 0, dur, r, core, shell, ring, embers, anim });
   }
 
   _clearFx(f) {
-    this.scene.remove(f.core); this.scene.remove(f.shell);
+    if (f.core) { this.scene.remove(f.core); this.scene.remove(f.shell); }
     if (f.ring) this.scene.remove(f.ring);
     if (f.embers) for (const em of f.embers) this.scene.remove(em.mesh);
+    if (f.anim) { f.anim.visible = false; this.animPool.push(f.anim); }   // recycle sprite + texture
   }
 
   // place combat visuals relative to the focus (floating origin)
@@ -479,14 +501,28 @@ export class Combat {
     for (const f of this.fx) {
       const k = f.t / f.dur, e = 1 - (1 - k) * (1 - k);
       this._p.x = f.pos.x - fPos.x; this._p.y = f.pos.y - fPos.y; this._p.z = f.pos.z - fPos.z;
-      toRender(this._p, f.core.position);
-      f.shell.position.copy(f.core.position);
-      f.core.scale.setScalar(Math.max(0.02, f.r * (0.15 + 0.5 * e)));
-      f.shell.scale.setScalar(Math.max(0.03, f.r * (0.2 + 0.8 * e)));
-      f.core.material.opacity = Math.pow(1 - k, 1.6);
-      f.shell.material.opacity = (1 - k) * 0.8;
+      toRender(this._p, this._u);                      // render-space centre of this fx
+      if (f.core) {                                    // procedural spark core (small hits only)
+        f.core.position.copy(this._u);
+        f.shell.position.copy(this._u);
+        f.core.scale.setScalar(Math.max(0.02, f.r * (0.15 + 0.5 * e)));
+        f.shell.scale.setScalar(Math.max(0.03, f.r * (0.2 + 0.8 * e)));
+        f.core.material.opacity = Math.pow(1 - k, 1.6);
+        f.shell.material.opacity = (1 - k) * 0.8;
+      }
+      if (f.anim) {                                    // flipbook fireball, billboarded
+        f.anim.position.copy(this._u);
+        const fr = Math.min(EXPLO_FRAMES - 1, (k * EXPLO_FRAMES) | 0);
+        f.anim.material.map.offset.set(
+          (fr % EXPLO_COLS) / EXPLO_COLS,
+          1 - (((fr / EXPLO_COLS) | 0) + 1) / EXPLO_ROWS,
+        );
+        const sc = f.r * 2.8;
+        f.anim.scale.set(sc, sc, 1);
+        f.anim.material.opacity = Math.min(1, 2.6 * (1 - k));
+      }
       if (f.ring) {                                    // shockwave: fast expand, hard fade, billboard
-        f.ring.position.copy(f.core.position);
+        f.ring.position.copy(this._u);
         if (camera) f.ring.quaternion.copy(camera.quaternion);
         f.ring.scale.setScalar(Math.max(0.02, f.r * (0.3 + 3.6 * e)));
         f.ring.material.opacity = Math.pow(1 - k, 2.2) * 0.85;
@@ -638,6 +674,16 @@ const beamGeo = new THREE.BoxGeometry(1, 1, 1);
 const boomGeo = new THREE.SphereGeometry(1, 18, 12);
 const ringGeo = new THREE.RingGeometry(0.82, 1.0, 48);
 const emberGeo = new THREE.SphereGeometry(0.05, 6, 5);
+
+// CC0 explosion flipbook (opengameart.org/content/explosion-7, public domain):
+// a 10x5 grid of 50 frames, billboarded and advanced across each big boom's
+// life. Additive + an HDR tint so the fireball blooms. Small laser sparks stay
+// procedural; this only spins up for real hits (r >= 0.5).
+const EXPLO_COLS = 10, EXPLO_ROWS = 5, EXPLO_FRAMES = 50;
+const exploTex = new THREE.TextureLoader().load('./textures/explosion.png');
+exploTex.colorSpace = THREE.SRGBColorSpace;
+const EXPLO_WARM = new THREE.Color(1.5, 1.15, 0.9);
+const EXPLO_COLD = new THREE.Color(0.6, 0.95, 1.7);
 
 function validTarget(t) { return t === 'player' || (t && t.alive); }
 function dist2(a, b) {

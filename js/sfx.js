@@ -108,6 +108,26 @@ export class Sfx {
     } catch (e) {}
   }
 
+  // a shot connects with a hull: a crisp, bright zap-thwack. Shorter and
+  // brighter than the dull "we've been hit" thud, so landing a hit reads.
+  impact(vol = 1) {
+    if (!(vol > 0.05)) return;
+    try {
+      const ctx = this._c(), t = ctx.currentTime;
+      const n = this._noise(0.14);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 1.1;
+      bp.frequency.setValueAtTime(2600, t);
+      bp.frequency.exponentialRampToValueAtTime(650, t + 0.12);
+      const g = ctx.createGain(); this._env(g, t, 0.002, 0.22 * vol, 0.12);
+      n.connect(bp); bp.connect(g); g.connect(this.out); n.start(t);
+      const o = ctx.createOscillator(); o.type = 'square';
+      o.frequency.setValueAtTime(520, t);
+      o.frequency.exponentialRampToValueAtTime(170, t + 0.1);
+      const g2 = ctx.createGain(); this._env(g2, t, 0.001, 0.1 * vol, 0.1);
+      o.connect(g2); g2.connect(this.out); o.start(t); o.stop(t + 0.16);
+    } catch (e) {}
+  }
+
   // target lock acquired: two quick blips
   lock() {
     try {
@@ -162,9 +182,11 @@ export class Sfx {
         this.eng = { lp, ng, mlp, mg, og, m1, m2 };
       }
       const t = this.ctx.currentTime, nv = Math.min(1, Math.max(0, v));
-      this.eng.ng.gain.setTargetAtTime(nv * 0.34, t, 0.1);
-      this.eng.mg.gain.setTargetAtTime(nv * 0.11, t, 0.1);
-      this.eng.og.gain.setTargetAtTime(nv * 0.15, t, 0.1);
+      // quick spool-up while burning, gentle spool-down when the throttle is cut
+      const tau = nv > 0 ? 0.1 : 0.4;
+      this.eng.ng.gain.setTargetAtTime(nv * 0.34, t, tau);
+      this.eng.mg.gain.setTargetAtTime(nv * 0.11, t, tau);
+      this.eng.og.gain.setTargetAtTime(nv * 0.15, t, tau);
       this.eng.lp.frequency.setTargetAtTime(520 + nv * 1500, t, 0.18);
       this.eng.m1.frequency.setTargetAtTime(104 + nv * 26, t, 0.2);
       this.eng.m2.frequency.setTargetAtTime(104 + nv * 26, t, 0.2);

@@ -10,7 +10,7 @@ export const J2000_MS = Date.UTC(2000, 0, 1, 12, 0, 0);
 export const PLANETS = [
   { name:'Mercury', m:3.3011e23, r:2439.7,  a:57.909e6,   e:0.20563, i:7.005,  O:48.331,  W:77.456,  L:252.251, day:5067000,  tilt:0.03,  type:'rock',  c1:0x8a8a8a, c2:0x5c5350, c3:0xb9b0a8 },
   { name:'Venus',   m:4.8675e24, r:6051.8,  a:108.209e6,  e:0.00677, i:3.395,  O:76.680,  W:131.533, L:181.979, day:-20997000, tilt:177.4, type:'venus', c1:0xe8d3a4, c2:0xc9a368, c3:0xf5ecd7 },
-  { name:'Earth',   m:5.9724e24, r:6371.0,  a:149.596e6,  e:0.01671, i:0.0,    O:0.0,     W:102.937, L:100.464, day:86164,    tilt:23.44, type:'earth', c1:0x1d4e89, c2:0x3a7d44, c3:0xf2f5f7 },
+  { name:'Earth',   m:5.9724e24, r:6371.0,  a:149.596e6,  e:0.01671, i:0.0,    O:0.0,     W:102.937, L:100.464, day:86164,    tilt:23.44, type:'earth', c1:0x01020f, c2:0x688d6c, c3:0x869aa6 },
   { name:'Mars',    m:6.4171e23, r:3389.5,  a:227.923e6,  e:0.09339, i:1.850,  O:49.558,  W:336.041, L:355.447, day:88643,    tilt:25.19, type:'rock',  c1:0xb5532a, c2:0x6e2f1c, c3:0xe0a878 },
   { name:'Jupiter', m:1.8982e27, r:69911,   a:778.570e6,  e:0.04839, i:1.303,  O:100.474, W:14.728,  L:34.396,  day:35730,    tilt:3.13,  type:'gas',   c1:0xc8a06a, c2:0x8a5a3a, c3:0xe8d8c0 },
   { name:'Saturn',  m:5.6834e26, r:58232,   a:1433.529e6, e:0.05386, i:2.485,  O:113.665, W:92.599,  L:49.954,  day:38362,    tilt:26.73, type:'gas',   c1:0xd8c08a, c2:0xa88a58, c3:0xf0e6c8, rings:[74500,140200] },
