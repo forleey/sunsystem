@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=82';
-import { Sim, V3 } from './physics.js?v=82';
-import { SystemView } from './bodies3d.js?v=82';
-import { ShipView } from './ship3d.js?v=82';
-import { UI } from './ui.js?v=82';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=82';
-import { Fleet } from './fleet.js?v=82';
-import { Music, renderTest } from './music.js?v=82';
-import { initEnvironment } from './models.js?v=82';
-import { Combat } from './combat.js?v=82';
-import { Sfx } from './sfx.js?v=82';
-import { Editor } from './editor.js?v=82';
+import { createStage, makeSky } from './scene.js?v=83';
+import { Sim, V3 } from './physics.js?v=83';
+import { SystemView } from './bodies3d.js?v=83';
+import { ShipView } from './ship3d.js?v=83';
+import { UI } from './ui.js?v=83';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=83';
+import { Fleet } from './fleet.js?v=83';
+import { Music, renderTest } from './music.js?v=83';
+import { initEnvironment } from './models.js?v=83';
+import { Combat } from './combat.js?v=83';
+import { Sfx } from './sfx.js?v=83';
+import { Editor } from './editor.js?v=83';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -397,13 +397,9 @@ function frameBody(now) {
   focusPos(fPos);
   shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
 
-  // engine bed: a subtle rumble that fades in with the throttle (Space held or
-  // autopilot) and fades back out the moment thrust is cut. It deliberately
-  // ignores the retro-burn (braking), so releasing Space quiets the engine,
-  // matching the exhaust glow which also keys off thrustAcc.
-  const shp = sim.ship;
-  const burning = shp.thrustAcc > 0 || shp.autopilot;
-  sfx.engine(burning ? Math.max(0.45, shp.autopilot ? 1 : shp.throttle) : 0);
+  // engine bed: volume is keyed directly to the (lagged) nozzle glow, so the
+  // rumble rises and fades out exactly with the visible exhaust brightness.
+  sfx.engine(shipView.glow);
   if (arrivalT >= 0) {
     arrivalT += dtWall / ARRIVE_S;
     if (arrivalT >= 1) arrivalT = -1;                    // lands on exactly zero — no snap

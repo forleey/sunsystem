@@ -238,7 +238,7 @@ void main(){
   // downsample then smears one NaN texel into a big black square. Clamp.
   float fres = pow(max(1.0 - abs(dot(n,vd)), 0.0), 2.5);
   float lit = clamp(dot(n, normalize(uSunDir))*1.4+0.35, 0.0, 1.0);
-  gl_FragColor = vec4(uColor * fres * lit * 1.9, fres*lit);
+  gl_FragColor = vec4(uColor * fres * lit * 2.3, clamp(fres*lit*1.2, 0.0, 1.0));
 }
 `;
 
@@ -282,7 +282,8 @@ void main(){
   float armsB = arms*diskA*(0.30+0.65*grain+speck*0.35)*smoothstep(0.05,0.35,r);
   vec3 c = vec3(1.0,0.83,0.62)*bulge + mix(vec3(0.62,0.72,1.0),vec3(0.9,0.92,1.0),grain)*armsB;
   c *= 1.0-0.70*dust*diskA;
-  float a = clamp(bulge*0.9+armsB*0.9, 0.0, 1.0);
-  gl_FragColor = vec4(c*1.15, a);
+  // a faint disk floor keeps the whole smudge visible from light-years away
+  float a = clamp(bulge*1.05 + armsB*1.0 + diskA*0.07, 0.0, 1.0);
+  gl_FragColor = vec4(c*1.5, a);
 }
 `;
