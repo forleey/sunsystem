@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=76';
-import { fmtKm } from './data.js?v=76';
-import { loadInto } from './models.js?v=76';
-import { buildWarship } from './fleet_meshes.js?v=76';
-import { fromRender } from './ship3d.js?v=76';
-import { Sfx } from './sfx.js?v=76';
+import { toRender } from './scene.js?v=77';
+import { fmtKm } from './data.js?v=77';
+import { loadInto } from './models.js?v=77';
+import { buildWarship } from './fleet_meshes.js?v=77';
+import { fromRender } from './ship3d.js?v=77';
+import { Sfx } from './sfx.js?v=77';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
@@ -78,7 +78,7 @@ export class Combat {
       this.releaseDrafted();
       for (const tp of this.torps) this.scene.remove(tp.mesh);
       for (const b of this.beams) b.mesh.visible = false;
-      for (const f of this.fx) { this.scene.remove(f.core); this.scene.remove(f.shell); }
+      for (const f of this.fx) this._clearFx(f);
       this.agents = []; this.torps = []; this.beams = []; this.fx = [];
       this.pending = []; this.lock = null;
       this.tgtEl.style.display = 'none';
@@ -223,7 +223,7 @@ export class Combat {
     for (const b of this.beams) if (b.t >= b.dur) { b.mesh.visible = false; this.beamPool.push(b.mesh); }
     this.beams = this.beams.filter(b => b.t < b.dur);
     for (const f of this.fx) f.t += dt;
-    for (const f of this.fx) if (f.t >= f.dur) { this.scene.remove(f.core); this.scene.remove(f.shell); }
+    for (const f of this.fx) if (f.t >= f.dur) this._clearFx(f);
     this.fx = this.fx.filter(f => f.t < f.dur);
   }
 
@@ -411,15 +411,40 @@ export class Combat {
   boom(pos, r, dur, cold = false) {
     const core = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({
       transparent: true, toneMapped: false,
-      color: cold ? new THREE.Color(5, 6.5, 9) : new THREE.Color(8, 6.5, 4),
+      color: cold ? new THREE.Color(5, 6.5, 9) : new THREE.Color(9, 7, 4),
     }));
     const shell = new THREE.Mesh(boomGeo, new THREE.MeshBasicMaterial({
       transparent: true, toneMapped: false,
-      color: cold ? new THREE.Color(1.2, 2.2, 4) : new THREE.Color(4, 1.1, 0.3),
+      color: cold ? new THREE.Color(1.2, 2.2, 4) : new THREE.Color(4.5, 1.2, 0.3),
     }));
     core.frustumCulled = shell.frustumCulled = false;
     this.scene.add(core); this.scene.add(shell);
-    this.fx.push({ pos: { ...pos }, t: 0, dur, r, core, shell });
+    // real explosions (not laser sparks) get a billboarded shockwave ring and
+    // a burst of flung embers
+    const big = r >= 0.5;
+    let ring = null; const embers = [];
+    if (big) {
+      ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
+        transparent: true, toneMapped: false, side: THREE.DoubleSide, depthWrite: false,
+        color: cold ? new THREE.Color(2, 4, 7) : new THREE.Color(7, 3.2, 0.8),
+      }));
+      ring.frustumCulled = false; this.scene.add(ring);
+      for (let i = 0; i < 16; i++) {
+        const em = new THREE.Mesh(emberGeo, new THREE.MeshBasicMaterial({
+          transparent: true, toneMapped: false,
+          color: cold ? new THREE.Color(3, 5, 8) : new THREE.Color(9, 4.5, 1.2),
+        }));
+        em.frustumCulled = false; this.scene.add(em);
+        embers.push({ mesh: em, dir: randDir(), sp: r * (0.7 + Math.random() * 1.9) });
+      }
+    }
+    this.fx.push({ pos: { ...pos }, t: 0, dur, r, core, shell, ring, embers });
+  }
+
+  _clearFx(f) {
+    this.scene.remove(f.core); this.scene.remove(f.shell);
+    if (f.ring) this.scene.remove(f.ring);
+    if (f.embers) for (const em of f.embers) this.scene.remove(em.mesh);
   }
 
   // place combat visuals relative to the focus (floating origin)
@@ -460,6 +485,20 @@ export class Combat {
       f.shell.scale.setScalar(Math.max(0.03, f.r * (0.2 + 0.8 * e)));
       f.core.material.opacity = Math.pow(1 - k, 1.6);
       f.shell.material.opacity = (1 - k) * 0.8;
+      if (f.ring) {                                    // shockwave: fast expand, hard fade, billboard
+        f.ring.position.copy(f.core.position);
+        if (camera) f.ring.quaternion.copy(camera.quaternion);
+        f.ring.scale.setScalar(Math.max(0.02, f.r * (0.3 + 3.6 * e)));
+        f.ring.material.opacity = Math.pow(1 - k, 2.2) * 0.85;
+      }
+      for (const em of f.embers) {                     // flung debris
+        this._p.x = f.pos.x + em.dir.x * em.sp * f.t - fPos.x;
+        this._p.y = f.pos.y + em.dir.y * em.sp * f.t - fPos.y;
+        this._p.z = f.pos.z + em.dir.z * em.sp * f.t - fPos.z;
+        toRender(this._p, em.mesh.position);
+        em.mesh.scale.setScalar(Math.max(0.008, f.r * 0.12 * (1 - k)));
+        em.mesh.material.opacity = 1 - k;
+      }
     }
   }
 
@@ -494,8 +533,18 @@ export class Combat {
 
   drawRadar() {
     const ctx = this.radarCtx, W = this.radarCv.width, cx = W / 2, cy = W / 2;
-    const R = W / 2 - 8, k = R / RADAR_KM;
+    const R = W / 2 - 18, k = R / RADAR_KM;
     ctx.clearRect(0, 0, W, W);
+    // hull-integrity ring on the rim: full sweep = 100%, depletes clockwise
+    const hp = Math.max(0, Math.min(1, this.playerHp / PLAYER_HP));
+    const hpCol = hp > 0.5 ? '#6ad1ff' : hp > 0.25 ? '#ffb35c' : '#ff5c4c';
+    const rim = W / 2 - 7;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = 6; ctx.strokeStyle = 'rgba(120,200,255,.12)';
+    ctx.beginPath(); ctx.arc(cx, cy, rim, 0, Math.PI * 2); ctx.stroke();
+    ctx.strokeStyle = hpCol;
+    ctx.beginPath(); ctx.arc(cx, cy, rim, -Math.PI / 2, -Math.PI / 2 + hp * Math.PI * 2); ctx.stroke();
+    ctx.lineCap = 'butt';
     // rings + crosshair
     ctx.strokeStyle = 'rgba(120,200,255,.22)';
     ctx.lineWidth = 1.5;
@@ -539,6 +588,9 @@ export class Combat {
     ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(cx, cy - 6); ctx.lineTo(cx, cy + 4);
     ctx.moveTo(cx - 4, cy + 1); ctx.lineTo(cx + 4, cy + 1); ctx.stroke();
+    // hull % label
+    ctx.fillStyle = hpCol; ctx.font = 'bold 22px "SF Mono", monospace'; ctx.textAlign = 'center';
+    ctx.fillText('HULL ' + Math.round(hp * 100) + '%', cx, W - 26);
   }
 
   // ---------- helpers ----------
@@ -584,6 +636,8 @@ const torpMatFed = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 2.4, 
 const torpMatFoe = new THREE.MeshBasicMaterial({ color: new THREE.Color(6, 1.2, 0.5), toneMapped: false });
 const beamGeo = new THREE.BoxGeometry(1, 1, 1);
 const boomGeo = new THREE.SphereGeometry(1, 18, 12);
+const ringGeo = new THREE.RingGeometry(0.82, 1.0, 48);
+const emberGeo = new THREE.SphereGeometry(0.05, 6, 5);
 
 function validTarget(t) { return t === 'player' || (t && t.alive); }
 function dist2(a, b) {

@@ -2,7 +2,7 @@
 // OpenRouter, see music_tracks.js); this synthesizes them with Web Audio —
 // no audio files, loops forever. The graph builder is BaseAudioContext-agnostic
 // so the whole engine can be verified with an OfflineAudioContext render.
-import { TRACKS } from './music_tracks.js?v=76';
+import { TRACKS } from './music_tracks.js?v=77';
 
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -41,6 +41,24 @@ export function spawnNote(ctx, bus, type, t0, dur, hz, vel) {
     oscs.push(o); nodes.push(o);
     return o;
   };
+  // percussion: a short filtered-noise hit. Pitch tunes the band center, so
+  // low midi = tom/kick, high = snare/hat. Self-contained, returns early.
+  if (type === 'perc') {
+    const src = ctx.createBufferSource();
+    const len = Math.floor(ctx.sampleRate * 0.4), buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const dch = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) dch[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    src.buffer = buf;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = hz; bp.Q.value = 0.9;
+    src.connect(bp); bp.connect(g); g.connect(bus);
+    nodes.push(src, bp);
+    const decay = 0.06 + Math.min(dur, 0.6) * 0.5;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(vel, t0 + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.02 + decay);
+    src.start(t0); src.stop(t0 + 0.42);
+    return nodes;
+  }
   let att = 2.5, rel = 4, lpF = 900, amp = vel;
   if (type === 'drone') {
     mk('triangle', hz).connect(g); mk('triangle', hz, 8).connect(g); mk('sine', hz / 2).connect(g);
@@ -51,6 +69,10 @@ export function spawnNote(ctx, bus, type, t0, dur, hz, vel) {
   } else if (type === 'bass') {
     mk('sine', hz).connect(g); mk('triangle', hz, 4).connect(g);
     att = 0.35; rel = 1.4; lpF = 240; amp = vel * 0.7;
+  } else if (type === 'brass') {
+    // martial fanfare stab: detuned saws + a square sub, bright and short
+    mk('sawtooth', hz, -9).connect(g); mk('sawtooth', hz, 9).connect(g); mk('square', hz / 2).connect(g);
+    att = 0.02; rel = 0.28; lpF = 2600; amp = vel * 0.5;
   } else { // bell
     const o1 = mk('sine', hz), o2 = mk('sine', hz * 2.01);
     const g2 = ctx.createGain(); g2.gain.value = 0.35; nodes.push(g2);

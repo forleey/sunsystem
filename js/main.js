@@ -1,16 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=76';
-import { Sim, V3 } from './physics.js?v=76';
-import { SystemView } from './bodies3d.js?v=76';
-import { ShipView } from './ship3d.js?v=76';
-import { UI } from './ui.js?v=76';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=76';
-import { Fleet } from './fleet.js?v=76';
-import { Music, renderTest } from './music.js?v=76';
-import { initEnvironment } from './models.js?v=76';
-import { Combat } from './combat.js?v=76';
-import { Sfx } from './sfx.js?v=76';
+import { createStage, makeSky } from './scene.js?v=77';
+import { Sim, V3 } from './physics.js?v=77';
+import { SystemView } from './bodies3d.js?v=77';
+import { ShipView } from './ship3d.js?v=77';
+import { UI } from './ui.js?v=77';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=77';
+import { Fleet } from './fleet.js?v=77';
+import { Music, renderTest } from './music.js?v=77';
+import { initEnvironment } from './models.js?v=77';
+import { Combat } from './combat.js?v=77';
+import { Sfx } from './sfx.js?v=77';
+import { Editor } from './editor.js?v=77';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -83,6 +84,7 @@ stage.renderer.domElement.addEventListener('pointerdown', e => {
   if (focusName !== 'Starship') return;
   if (e.button === 2) chaseDragY = e.clientY;
   else if (e.button === 0) {
+    if (editor && editor.enabled) return;   // don't grab pointer-lock while editing
     steering = true;
     shipView.angVel.set(0, 0, 0);          // kill any residual key-spin
     const p = stage.renderer.domElement.requestPointerLock();
@@ -131,8 +133,12 @@ function bootAttitude(rollRad = -0.6) {
 bootAttitude();   // parked behind the start screen — the fly-in runs on mode select
 
 let focusName = 'Earth';
-const ui = new UI(sim, (name, beam) => { if (beam) beamToName(name); else applyFocus(name); },
-  fleet.objects.map(o => o.name));
+let editor;   // assigned below; the label-click router checks it at call time
+const ui = new UI(sim, (name, beam) => {
+  if (editor && editor.enabled) { editor.select(name); return; }   // editor mode: click selects
+  if (beam) beamToName(name); else applyFocus(name);
+}, fleet.objects.map(o => o.name));
+editor = new Editor({ stage, system, fleet, shipView, sim, ui });
 
 function focusRadiusKm() {
   if (focusName === 'Starship') return 0.2;
@@ -240,6 +246,7 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (document.body.classList.contains('title')) return;   // menu is up — helm keys idle
+  if (e.code === 'Backquote') { editor.toggle(); return; }  // ` toggles the editor
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();  // helm keys never drive UI controls
   keys.add(e.code);
   if (e.code === 'KeyJ') startAndromedaJump();
@@ -518,7 +525,7 @@ document.getElementById('b-ship').addEventListener('click', () => {
   startArrival();
 });
 
-window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, keys, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };
+window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, editor, keys, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };
 console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);
