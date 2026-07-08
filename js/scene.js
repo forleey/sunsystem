@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SKY_V, SKY_F, logDepth } from './shaders.js?v=84';
+import { SKY_V, SKY_F, logDepth } from './shaders.js?v=85';
 
 export function toRender(v, out) { return out.set(v.x, v.z, -v.y); }
 
@@ -25,7 +25,7 @@ export function createStage(container) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 0.80;   // baked default (main.js LOOK_DEF re-applies on load)
+  renderer.toneMappingExposure = 1.11;   // baked default (main.js LOOK_DEF re-applies on load)
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -34,10 +34,9 @@ export function createStage(container) {
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  // radius 0.83 (not 0.45): a tighter radius lets the separable blur trace the
-  // ship's boxy bright silhouette, so a saturated engine core blooms into a
-  // hard rounded-square halo. The wider radius melts it back into a soft disc.
-  const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.83, 0.86);
+  // bloom radius/threshold are baked defaults tuned live in the editor; the
+  // per-frame strength is driven from ui.state.bloom.
+  const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.54, 0.83);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
   const fxaa = new ShaderPass(FXAAShader);
@@ -51,7 +50,7 @@ export function createStage(container) {
       uTime: { value: 0 },
       uRes: { value: new THREE.Vector2(1, 1) },
       uSat: { value: 1.07 },     // saturation
-      uCon: { value: 0.955 },    // contrast
+      uCon: { value: 0.995 },    // contrast
       uGrain: { value: 1.0 },    // grain strength multiplier
       uVig: { value: 1.0 },      // vignette strength multiplier
     },

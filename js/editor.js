@@ -3,7 +3,8 @@
 // shader colours, global grade). Every control updates the scene live and
 // rewrites a readout block you can copy and hand back to me.
 const $ = id => document.getElementById(id);
-const hex = c => '#' + [c.r, c.g, c.b].map(v => Math.round(Math.min(1, Math.max(0, v)) * 255).toString(16).padStart(2, '0')).join('');
+// sRGB hex (matches an <input type=color> and bakes straight into new THREE.Color(0xRRGGBB))
+const hex = c => '#' + c.getHexString();
 
 export class Editor {
   constructor({ stage, system, fleet, shipView, sim, ui }) {
