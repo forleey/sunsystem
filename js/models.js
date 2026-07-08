@@ -121,7 +121,29 @@ function raiderPaint(root) {
   });
 }
 
-function normalize(src, { lengthKm, yaw = 0, pitch = 0, roll = 0, lift = 0, blinkers = 2, unlit = false, raider = false }) {
+// player paint: dark gunmetal grey, more metallic + glossier than the white
+// fleet (reads as the hero hull). Keeps engine/window emissive glows.
+function playerPaint(root) {
+  root.traverse(n => {
+    if (!n.isMesh) return;
+    n.material = Array.isArray(n.material) ? n.material.map(m => m.clone()) : n.material.clone();
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    for (const m of mats) {
+      const glowing = m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.2 && !m.map;
+      if (glowing) { m.userData._washed = true; continue; }
+      if (m.color) {
+        const c = m.color, lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
+        const v = 0.20 + lum * 0.16;           // dark grey ~0.20-0.36
+        c.setRGB(v, v * 1.01, v * 1.06);       // a hair cool
+      }
+      if ('metalness' in m) m.metalness = 0.74;
+      if ('roughness' in m) m.roughness = 0.3;  // glossier -> sharper env reflections
+      m.userData._washed = true;
+    }
+  });
+}
+
+function normalize(src, { lengthKm, yaw = 0, pitch = 0, roll = 0, lift = 0, blinkers = 2, unlit = false, raider = false, player = false }) {
   const obj = src.clone(true);
   const wrap = new THREE.Group();
   const inner = new THREE.Group();
@@ -152,8 +174,9 @@ function normalize(src, { lengthKm, yaw = 0, pitch = 0, roll = 0, lift = 0, blin
       if (!m.metalnessMap && m.metalness > 0.85) { m.metalness = 0.35; m.roughness = Math.max(m.roughness ?? 1, 0.5); }
     }
   });
-  if (raider) raiderPaint(obj);   // hostiles: black hull, red glow
-  else whitewashObject(obj);      // fleet paint scheme: white hull, light gray shading
+  if (raider) raiderPaint(obj);        // hostiles: black hull, red glow
+  else if (player) playerPaint(obj);   // hero: dark gunmetal, glossy
+  else whitewashObject(obj);           // fleet paint scheme: white hull, light gray shading
 
   // nav blinkers (fleet.place drives emissiveIntensity)
   wrap.userData.blinkers = [];

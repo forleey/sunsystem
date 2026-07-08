@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=75';
-import { fmtKm } from './data.js?v=75';
-import { loadInto } from './models.js?v=75';
-import { buildWarship } from './fleet_meshes.js?v=75';
-import { fromRender } from './ship3d.js?v=75';
-import { Sfx } from './sfx.js?v=75';
+import { toRender } from './scene.js?v=76';
+import { fmtKm } from './data.js?v=76';
+import { loadInto } from './models.js?v=76';
+import { buildWarship } from './fleet_meshes.js?v=76';
+import { fromRender } from './ship3d.js?v=76';
+import { Sfx } from './sfx.js?v=76';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
@@ -66,8 +66,7 @@ export class Combat {
     if (on) {
       this.kills = 0; this.wave = 0; this.playerHp = PLAYER_HP;
       this.invulnT = 2; this.waveT = 2.5; this.t = 0; this.raiderSeq = 0;
-      const escorts = ['USS Defiant', 'USS Excalibur', 'USS Reliant'];
-      this.pending = escorts.map((n, i) => ({ name: n, at: 3 + i * 3.5 }));
+      this.pending = [];   // no escorts: it's you against the raiders
       this.sfx.unlock();
       this.sfx.alert();
       if (this.music) this.music.armCombat();
@@ -106,7 +105,7 @@ export class Combat {
       const agent = this.mkAgent('foe', name, {
         x: s.pos.x + dir.x * d, y: s.pos.y + dir.y * d, z: s.pos.z + dir.z * d,
       }, { x: s.vel.x + rnd2(), y: s.vel.y + rnd2(), z: s.vel.z + rnd2() },
-      50 + this.wave * 6, 2.6);
+      50 + this.wave * 6, 1.3);
       const grp = mkRaider();
       const o = this.fleet.register({
         name, grp, kind: 'ship', radiusKm: 0.35, label: false, hDiff: 1,
@@ -231,10 +230,10 @@ export class Combat {
   stepAgent(a, dt) {
     a.cLaser -= dt; a.cTorp -= dt; a.retargetT -= dt; a.jinkT -= dt;
 
-    // targeting
+    // targeting: raiders hunt the player only (friendlies stay out of it)
     if (a.retargetT <= 0 || !validTarget(a.target)) {
       a.retargetT = 2.5;
-      a.target = a.side === 'foe' ? this.nearestOf(a.pos, this.fedTargets()) : this.nearestOf(a.pos, this.agents.filter(x => x.side === 'foe'));
+      a.target = a.side === 'foe' ? 'player' : this.nearestOf(a.pos, this.agents.filter(x => x.side === 'foe'));
     }
     const tgt = a.target;
     const tp = tgt === 'player' ? this.sim.ship.pos : tgt ? tgt.pos : null;
@@ -249,11 +248,12 @@ export class Combat {
     const d = Math.hypot(rx, ry, rz) || 1e-6;
     rx /= d; ry /= d; rz /= d;
     if (a.jinkT <= 0) {
-      a.jinkT = 1.2 + Math.random() * 1.6;
-      const j = randDir(), m = 2.5 + Math.random() * 3;
+      a.jinkT = 1.4 + Math.random() * 1.8;
+      const j = randDir(), m = 1.0 + Math.random() * 1.3;
       a.jink.x = j.x * m; a.jink.y = j.y * m; a.jink.z = j.z * m;
     }
-    const close = d > 40 ? 26 : d > 12 ? 12 : 6.5;
+    // gentler closing speeds so raiders read as menacing, not twitchy
+    const close = d > 40 ? 10 : d > 15 ? 6 : 3.4;
     const jk = d < 60 ? 1 : 0;
     let dvx = tv.x + rx * close + a.jink.x * jk - a.vel.x;
     let dvy = tv.y + ry * close + a.jink.y * jk - a.vel.y;

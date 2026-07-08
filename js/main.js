@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=75';
-import { Sim, V3 } from './physics.js?v=75';
-import { SystemView } from './bodies3d.js?v=75';
-import { ShipView } from './ship3d.js?v=75';
-import { UI } from './ui.js?v=75';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=75';
-import { Fleet } from './fleet.js?v=75';
-import { Music, renderTest } from './music.js?v=75';
-import { initEnvironment } from './models.js?v=75';
-import { Combat } from './combat.js?v=75';
-import { Sfx } from './sfx.js?v=75';
+import { createStage, makeSky } from './scene.js?v=76';
+import { Sim, V3 } from './physics.js?v=76';
+import { SystemView } from './bodies3d.js?v=76';
+import { ShipView } from './ship3d.js?v=76';
+import { UI } from './ui.js?v=76';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=76';
+import { Fleet } from './fleet.js?v=76';
+import { Music, renderTest } from './music.js?v=76';
+import { initEnvironment } from './models.js?v=76';
+import { Combat } from './combat.js?v=76';
+import { Sfx } from './sfx.js?v=76';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);

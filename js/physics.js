@@ -1,6 +1,6 @@
 // N-body gravity + starship with thrust & inertia. Positions in km (JS doubles), ecliptic frame:
 // x,y in ecliptic plane (x = vernal equinox), z = ecliptic north.
-import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=75';
+import { G0, C_KMS, G_ACC, PLANETS, SUN, MOON } from './data.js?v=76';
 
 const DEG = Math.PI / 180;
 

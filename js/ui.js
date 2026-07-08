@@ -1,14 +1,14 @@
 // Sliders, HUD, body labels.
 import * as THREE from 'three';
-import { fmtKm, fmtSpeed, fmtWarp, C_KMS } from './data.js?v=75';
-import { toRender } from './scene.js?v=75';
+import { fmtKm, fmtSpeed, fmtWarp, C_KMS } from './data.js?v=76';
+import { toRender } from './scene.js?v=76';
 
 const $ = id => document.getElementById(id);
 
 export class UI {
   constructor(sim, onFocus, extraNames = []) {
     this.sim = sim;
-    this.state = { warp: 1, sizeMult: 1, shipG: 0.1, bloom: 0.15, trails: true, labels: true };
+    this.state = { warp: 1, sizeMult: 1, shipG: 0.05, bloom: 0.15, trails: true, labels: true };
     this.onFocus = onFocus;
     this.labelEls = new Map();
     this.tmp = new THREE.Vector3();
@@ -72,7 +72,7 @@ export class UI {
 
   resetDefaults() {
     const set = (id, v, evt = 'input') => { $(id).value = v; $(id).dispatchEvent(new Event(evt)); };
-    set('s-warp', 0); set('s-g', 1); set('s-psize', 0); set('s-shipg', -1); set('s-bloom', 0.15);
+    set('s-warp', 0); set('s-g', 1); set('s-psize', 0); set('s-shipg', -1.301); set('s-bloom', 0.15);
     $('c-rel').checked = false; this.sim.relativistic = false;
     this.toast('Realistic defaults restored');
   }

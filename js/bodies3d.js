@@ -1,11 +1,11 @@
 // Meshes for sun, planets, trails, Andromeda. Positions set each frame relative to focus.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=75';
-import { ANDROMEDA } from './data.js?v=75';
+import { toRender } from './scene.js?v=76';
+import { ANDROMEDA } from './data.js?v=76';
 import {
   SUN_V, SUN_F, CORONA_V, CORONA_F, GLARE_F, PLANET_V, PLANET_F, PLANET_DEFS_PRE,
   ATMO_V, ATMO_F, RING_V, RING_F, GALAXY_V, GALAXY_F, logDepth,
-} from './shaders.js?v=75';
+} from './shaders.js?v=76';
 
 const TYPE_DEF = { rock: 'TYPE_ROCK', gas: 'TYPE_GAS', ice: 'TYPE_ICE', earth: 'TYPE_EARTH', venus: 'TYPE_VENUS', moon: 'TYPE_MOON' };
 
@@ -48,7 +48,7 @@ export class SystemView {
     this.sunMat = new THREE.ShaderMaterial({
       ...logDepth(SUN_V, SUN_F), uniforms: { uTime: { value: 0 } },
     });
-    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(sun.r, 64, 48), this.sunMat);
+    const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(sun.r, 128, 80), this.sunMat);
     sunGrp.add(sunMesh);
     this.coronaMat = new THREE.ShaderMaterial({
       ...logDepth(CORONA_V, CORONA_F), uniforms: { uTime: { value: 0 } },
@@ -109,7 +109,7 @@ export class SystemView {
       ...logDepth(PLANET_V, PLANET_DEFS_PRE + PLANET_F),
       uniforms, defines: { [TYPE_DEF[d.type]]: 1 },
     });
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(b.r, 56, 40), mat);
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(b.r, 160, 96), mat);
     const tiltGrp = new THREE.Group();
     tiltGrp.rotation.z = -(d.tilt || 0) * Math.PI / 180;
     tiltGrp.add(mesh);
@@ -126,7 +126,7 @@ export class SystemView {
         transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.FrontSide,
       });
       this.camPosU.push(am.uniforms.uCamPos);
-      tiltGrp.add(new THREE.Mesh(new THREE.SphereGeometry(b.r * a[1], 48, 32), am));
+      tiltGrp.add(new THREE.Mesh(new THREE.SphereGeometry(b.r * a[1], 128, 80), am));
     }
     if (d.rings) {
       const [ri, ro] = d.rings;
