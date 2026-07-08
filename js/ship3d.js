@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=78';
-import { C_KMS } from './data.js?v=78';
-import { loadModel } from './models.js?v=78';
+import { toRender } from './scene.js?v=79';
+import { C_KMS } from './data.js?v=79';
+import { loadModel } from './models.js?v=79';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -26,7 +26,8 @@ export class ShipView {
     this.fwd = new THREE.Vector3();
     this.tmp = new THREE.Vector3();
     this.tmpV = new THREE.Vector3();
-    this.angVel = new THREE.Vector3();   // local pitch/yaw/roll rates, rad/s — rotational inertia
+    this.angVel = new THREE.Vector3();   // local pitch/yaw/roll rates, rad/s (rotational inertia)
+    this.glow = 0;                       // throttle glow, lagged (afterburner feel)
   }
 
   buildMesh() {
@@ -81,10 +82,28 @@ export class ShipView {
       pylon.rotation.z = sx * 0.6;
       g.add(pylon);
     }
-    // soft engine halo light — brightens with throttle, no protruding jets
+    // soft engine halo light: brightens with throttle, no protruding jets
     const lamp = new THREE.PointLight(0x88bbff, 0, 0.6, 2);
     lamp.position.set(0, 0.02, 0.09);
     this.grp.add(lamp); this.lamp = lamp;   // on grp: survives the GLB swap
+
+    // exhaust: bright nozzles + a plume that lengthens with throttle (the
+    // schweif). Additive, added to grp so it survives the GLB swap. Rear = +Z.
+    const uSph = new THREE.SphereGeometry(1, 16, 12);
+    const exMat = (r, g, b) => new THREE.MeshBasicMaterial({
+      color: new THREE.Color(r, g, b), transparent: true, opacity: 0,
+      toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false,
+    });
+    const ex = new THREE.Group();
+    this.noz = [];
+    for (const sx of [-1, 1]) {
+      const n = new THREE.Mesh(uSph, exMat(1.7, 2.3, 4.2));
+      n.position.set(sx * 0.017, 0.004, 0.05);
+      ex.add(n); this.noz.push(n);
+    }
+    this.plume = new THREE.Mesh(uSph, exMat(0.9, 1.5, 3)); ex.add(this.plume);
+    this.plumeHalo = new THREE.Mesh(uSph, exMat(0.4, 0.9, 2)); ex.add(this.plumeHalo);
+    this.grp.add(ex);
   }
 
   // swap in the hero GLB; the throttle-glow loop in update() then drives the
@@ -156,11 +175,22 @@ export class ShipView {
     this.tmpV.set(ship.pos.x - focusPos.x, ship.pos.y - focusPos.y, ship.pos.z - focusPos.z);
     toRender(this.tmpV, this.grp.position);
 
-    // engine glow — nacelle grilles brighten with throttle + a soft halo light
-    const burning = ship.thrustAcc > 0 || ship.braking || ship.autopilot;
-    const lvl = burning ? Math.max(0.15, ship.autopilot ? 1 : ship.throttle) : 0;
-    const pulse = 0.9 + 0.1 * Math.sin(performance.now() * 0.02);
-    for (const gr of this.grilles) gr.material.emissiveIntensity = (0.9 + lvl * 3.5) * pulse;
-    this.lamp.intensity = lvl * 0.45;
+    // engine glow: only the nozzles flare, lagged behind the throttle (a quick
+    // spool-up, slow fade). The plume lengthens with throttle, so the faster
+    // you push, the longer the schweif. Hull windows stay a steady dim.
+    const target = ship.autopilot ? 1 : (ship.thrustAcc > 0 ? Math.max(0.12, ship.throttle) : 0);
+    const rate = target > this.glow ? 6 : 2.2;
+    this.glow += (target - this.glow) * (1 - Math.exp(-rate * dt));
+    const gl = this.glow, pf = 0.85 + 0.15 * Math.sin(performance.now() * 0.03);
+    for (const n of this.noz) { n.material.opacity = (0.1 + gl * 0.7) * pf; n.scale.setScalar(0.0035 + gl * 0.004); }
+    const L = 0.02 + gl * 0.15;                                   // plume length grows with throttle (the schweif)
+    this.plume.scale.set(0.0055 + gl * 0.0025, 0.0055 + gl * 0.0025, L * 0.5);
+    this.plume.position.set(0, 0.004, 0.05 + L * 0.5);
+    this.plume.material.opacity = gl * 0.45 * pf;
+    this.plumeHalo.scale.set(0.01 + gl * 0.005, 0.01 + gl * 0.005, L * 0.6);
+    this.plumeHalo.position.set(0, 0.004, 0.05 + L * 0.55);
+    this.plumeHalo.material.opacity = gl * 0.16 * pf;
+    this.lamp.intensity = gl * 0.5;
+    for (const gr of this.grilles) gr.material.emissiveIntensity = 1.15 * pf;   // windows: steady, not throttle-driven
   }
 }
