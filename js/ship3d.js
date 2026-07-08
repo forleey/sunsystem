@@ -1,14 +1,27 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=80';
-import { C_KMS } from './data.js?v=80';
-import { loadModel } from './models.js?v=80';
+import { toRender } from './scene.js?v=81';
+import { C_KMS } from './data.js?v=81';
+import { loadModel } from './models.js?v=81';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
 const HULL = new THREE.MeshStandardMaterial({ color: 0xccd3dd, metalness: 0.45, roughness: 0.4 });
 const DARK = new THREE.MeshStandardMaterial({ color: 0x6b7480, metalness: 0.6, roughness: 0.5 });
+
+// soft radial glow: a blurred white falloff for the additive engine sprites
+const GLOW_TEX = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(64, 64, 0, 64, 64, 64);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.18, 'rgba(255,255,255,0.55)');
+  g.addColorStop(0.5, 'rgba(255,255,255,0.12)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+})();
 
 function capsule(r, l, mat) {
   const m = new THREE.Mesh(new THREE.CapsuleGeometry(r, l, 8, 20), mat);
@@ -92,22 +105,27 @@ export class ShipView {
     selfLit.position.set(0, 0.02, 0);
     this.grp.add(selfLit);
 
-    // exhaust: bright nozzles + a plume that lengthens with throttle (the
-    // schweif). Additive, added to grp so it survives the GLB swap. Rear = +Z.
-    const uSph = new THREE.SphereGeometry(1, 16, 12);
-    const exMat = (r, g, b) => new THREE.MeshBasicMaterial({
-      color: new THREE.Color(r, g, b), transparent: true, opacity: 0,
-      toneMapped: false, blending: THREE.AdditiveBlending, depthWrite: false,
-    });
+    // exhaust: soft additive glow sprites (heavily blurred, no hard edges) for
+    // the nozzles and the plume/schweif. Billboarded, on grp so they survive
+    // the GLB swap. Size/length + brightness are driven by throttle in update.
+    const spr = (r, g, b) => {
+      const s = new THREE.Sprite(new THREE.SpriteMaterial({
+        map: GLOW_TEX, color: new THREE.Color(r, g, b), transparent: true, opacity: 0,
+        blending: THREE.AdditiveBlending, depthWrite: false,
+      }));
+      s.frustumCulled = false; return s;
+    };
     const ex = new THREE.Group();
     this.noz = [];
     for (const sx of [-1, 1]) {
-      const n = new THREE.Mesh(uSph, exMat(1.7, 2.3, 4.2));
-      n.position.set(sx * 0.017, 0.004, 0.05);
+      const n = spr(1.7, 2.3, 4.2); n.position.set(sx * 0.017, 0.004, 0.052);
       ex.add(n); this.noz.push(n);
     }
-    this.plume = new THREE.Mesh(uSph, exMat(0.9, 1.5, 3)); ex.add(this.plume);
-    this.plumeHalo = new THREE.Mesh(uSph, exMat(0.4, 0.9, 2)); ex.add(this.plumeHalo);
+    // plume = a trail of soft puffs along +Z: stays 3D-directional but every
+    // blob is a blurred glow. Positions/opacity set in update (grows w/ throttle).
+    this.puffs = [];
+    for (let i = 0; i < 7; i++) { const p = spr(0.9 - i * 0.02, 1.5 - i * 0.05, 3 - i * 0.16); ex.add(p); this.puffs.push(p); }
+    this.plumeHalo = spr(0.5, 1.0, 2.2); this.plumeHalo.position.set(0, 0.004, 0.055); ex.add(this.plumeHalo);
     this.grp.add(ex);
   }
 
@@ -187,14 +205,19 @@ export class ShipView {
     const rate = target > this.glow ? 6 : 2.2;
     this.glow += (target - this.glow) * (1 - Math.exp(-rate * dt));
     const gl = this.glow, pf = 0.85 + 0.15 * Math.sin(performance.now() * 0.03);
-    for (const n of this.noz) { n.material.opacity = (0.1 + gl * 0.7) * pf; n.scale.setScalar(0.0035 + gl * 0.004); }
-    const L = 0.02 + gl * 0.15;                                   // plume length grows with throttle (the schweif)
-    this.plume.scale.set(0.0055 + gl * 0.0025, 0.0055 + gl * 0.0025, L * 0.5);
-    this.plume.position.set(0, 0.004, 0.05 + L * 0.5);
-    this.plume.material.opacity = gl * 0.45 * pf;
-    this.plumeHalo.scale.set(0.01 + gl * 0.005, 0.01 + gl * 0.005, L * 0.6);
-    this.plumeHalo.position.set(0, 0.004, 0.05 + L * 0.55);
-    this.plumeHalo.material.opacity = gl * 0.16 * pf;
+    for (const n of this.noz) { const s = 0.022 + gl * 0.028; n.scale.set(s, s, 1); n.material.opacity = (0.12 + gl * 0.8) * pf; }
+    const len = 0.04 + gl * 0.16;                                 // schweif length grows with throttle
+    const step = len / this.puffs.length;
+    for (let i = 0; i < this.puffs.length; i++) {
+      const p = this.puffs[i], f = i / this.puffs.length;         // 0..1 along the trail
+      p.position.set(0, 0.004, 0.055 + (i + 0.5) * step);
+      const s = (0.05 - f * 0.028) * (0.5 + gl * 0.55);
+      p.scale.set(s, s, 1);
+      p.material.opacity = gl * (1 - f) * 0.5 * pf;
+    }
+    const hs = 0.045 + gl * 0.03;
+    this.plumeHalo.scale.set(hs, hs, 1);
+    this.plumeHalo.material.opacity = gl * 0.5 * pf;
     this.lamp.intensity = gl * 0.5;
     for (const gr of this.grilles) gr.material.emissiveIntensity = 2.4 * pf;   // ship lights: steady, brighter self-glow
   }
