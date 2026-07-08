@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sol System — N-Body Simulator</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=74">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=75">
 <meta name="theme-color" content="#02040a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -135,7 +135,7 @@
   #logo{position:relative; display:inline-block;
     font-family:'Orbitron','SF Mono',ui-monospace,monospace; font-weight:900;
     font-size:clamp(46px, 7.6vw, 100px); letter-spacing:.14em; margin-right:-.14em;
-    filter:drop-shadow(0 0 16px rgba(106,209,255,.22)) drop-shadow(0 2px 5px rgba(0,0,0,.85));
+    filter:drop-shadow(0 0 16px rgba(106,209,255,.22));
     animation:logoPulse 4.4s ease-in-out 2s infinite;}
   #logo span{display:inline-block; color:transparent;
     background:linear-gradient(180deg, #f4fbff 10%, #9fdcff 44%, #2f86c0 76%, #123f63 96%);
@@ -147,8 +147,8 @@
     60%{opacity:1;}
     100%{opacity:1; transform:none;}}
   @keyframes logoPulse{
-    0%,100%{filter:drop-shadow(0 0 16px rgba(106,209,255,.22)) drop-shadow(0 2px 5px rgba(0,0,0,.85));}
-    50%{filter:drop-shadow(0 0 36px rgba(106,209,255,.52)) drop-shadow(0 2px 5px rgba(0,0,0,.85));}}
+    0%,100%{filter:drop-shadow(0 0 16px rgba(106,209,255,.22));}
+    50%{filter:drop-shadow(0 0 36px rgba(106,209,255,.52));}}
   #logo::after{content:attr(data-text); position:absolute; inset:0; pointer-events:none;
     color:transparent; -webkit-background-clip:text; background-clip:text;
     background-image:linear-gradient(115deg, transparent 42%, rgba(255,255,255,.9) 50%, transparent 58%);
@@ -297,6 +297,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=74"></script>
+<script type="module" src="./js/main.js?v=75"></script>
 </body>
 </html>

@@ -134,30 +134,40 @@ export class Sfx {
     } catch (e) {}
   }
 
-  // continuous engine bed: looped noise through a lowpass + a detuned sub-sine
-  // pair. Level follows throttle every frame — subtle rumble, not a roar.
+  // continuous engine bed: a filtered-noise "roar" (band-passed with a bit of
+  // resonance so it carries on laptop speakers) over a mid thrum and a low sub.
+  // Level + brightness follow throttle every frame: present, but not a roar.
   engine(v) {
     try {
       if (!this.ctx && !(v > 0)) return;   // never create audio before a gesture-driven burn
       const ctx = this._c();
       if (!this.eng) {
-        const noise = this._noise(2);
-        noise.loop = true;
-        const lp = ctx.createBiquadFilter();
-        lp.type = 'lowpass'; lp.frequency.value = 180; lp.Q.value = 0.6;
+        // noise roar: highpass keeps some "air", resonant lowpass gives body
+        const noise = this._noise(2); noise.loop = true;
+        const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 130;
+        const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 700; lp.Q.value = 3.5;
         const ng = ctx.createGain(); ng.gain.value = 0;
-        noise.connect(lp); lp.connect(ng); ng.connect(this.out); noise.start();
-        const o1 = ctx.createOscillator(); o1.type = 'sine'; o1.frequency.value = 44;
-        const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 44; o2.detune.value = 9;
+        noise.connect(hp); hp.connect(lp); lp.connect(ng); ng.connect(this.out); noise.start();
+        // mid thrum: a sawtooth pair around 108 Hz, the part small speakers hear
+        const m1 = ctx.createOscillator(); m1.type = 'sawtooth'; m1.frequency.value = 108;
+        const m2 = ctx.createOscillator(); m2.type = 'sawtooth'; m2.frequency.value = 108; m2.detune.value = 11;
+        const mlp = ctx.createBiquadFilter(); mlp.type = 'lowpass'; mlp.frequency.value = 900; mlp.Q.value = 0.7;
+        const mg = ctx.createGain(); mg.gain.value = 0;
+        m1.connect(mlp); m2.connect(mlp); mlp.connect(mg); mg.connect(this.out); m1.start(); m2.start();
+        // low sub for weight
+        const o1 = ctx.createOscillator(); o1.type = 'sine'; o1.frequency.value = 62;
+        const o2 = ctx.createOscillator(); o2.type = 'sine'; o2.frequency.value = 62; o2.detune.value = 9;
         const og = ctx.createGain(); og.gain.value = 0;
-        o1.connect(og); o2.connect(og); og.connect(this.out);
-        o1.start(); o2.start();
-        this.eng = { lp, ng, og };
+        o1.connect(og); o2.connect(og); og.connect(this.out); o1.start(); o2.start();
+        this.eng = { lp, ng, mlp, mg, og, m1, m2 };
       }
       const t = this.ctx.currentTime, nv = Math.min(1, Math.max(0, v));
-      this.eng.ng.gain.setTargetAtTime(nv * 0.10, t, 0.12);
-      this.eng.og.gain.setTargetAtTime(nv * 0.075, t, 0.12);
-      this.eng.lp.frequency.setTargetAtTime(160 + nv * 320, t, 0.2);
+      this.eng.ng.gain.setTargetAtTime(nv * 0.34, t, 0.1);
+      this.eng.mg.gain.setTargetAtTime(nv * 0.11, t, 0.1);
+      this.eng.og.gain.setTargetAtTime(nv * 0.15, t, 0.1);
+      this.eng.lp.frequency.setTargetAtTime(520 + nv * 1500, t, 0.18);
+      this.eng.m1.frequency.setTargetAtTime(104 + nv * 26, t, 0.2);
+      this.eng.m2.frequency.setTargetAtTime(104 + nv * 26, t, 0.2);
     } catch (e) {}
   }
 

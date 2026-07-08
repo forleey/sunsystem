@@ -1,16 +1,16 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=74';
-import { Sim, V3 } from './physics.js?v=74';
-import { SystemView } from './bodies3d.js?v=74';
-import { ShipView } from './ship3d.js?v=74';
-import { UI } from './ui.js?v=74';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=74';
-import { Fleet } from './fleet.js?v=74';
-import { Music, renderTest } from './music.js?v=74';
-import { initEnvironment } from './models.js?v=74';
-import { Combat } from './combat.js?v=74';
-import { Sfx } from './sfx.js?v=74';
+import { createStage, makeSky } from './scene.js?v=75';
+import { Sim, V3 } from './physics.js?v=75';
+import { SystemView } from './bodies3d.js?v=75';
+import { ShipView } from './ship3d.js?v=75';
+import { UI } from './ui.js?v=75';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=75';
+import { Fleet } from './fleet.js?v=75';
+import { Music, renderTest } from './music.js?v=75';
+import { initEnvironment } from './models.js?v=75';
+import { Combat } from './combat.js?v=75';
+import { Sfx } from './sfx.js?v=75';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -391,7 +391,7 @@ function frameBody(now) {
   // engine bed: a subtle rumble that follows the burn (all modes)
   const shp = sim.ship;
   const burning = shp.thrustAcc > 0 || shp.braking || shp.autopilot;
-  sfx.engine(burning ? Math.max(0.25, shp.autopilot ? 1 : shp.throttle) : 0);
+  sfx.engine(burning ? Math.max(0.45, shp.autopilot ? 1 : shp.throttle) : 0);
   if (arrivalT >= 0) {
     arrivalT += dtWall / ARRIVE_S;
     if (arrivalT >= 1) arrivalT = -1;                    // lands on exactly zero — no snap
@@ -412,11 +412,11 @@ function frameBody(now) {
       titleT += dtWall;
       shipView.quat.multiply(titleQ.setFromAxisAngle(titleAxis, 0.016 * dtWall));
       stage.camera.position.set(
-        -0.045 + Math.sin(titleT * 0.11) * 0.005,
-        0.030 + Math.sin(titleT * 0.073) * 0.004,
-        0.130
+        -0.035 + Math.sin(titleT * 0.11) * 0.005,
+        0.026 + Math.sin(titleT * 0.073) * 0.004,
+        0.085
       ).applyQuaternion(shipView.quat);
-      titleTgt.set(0.020, 0.024, -0.040).applyQuaternion(shipView.quat);
+      titleTgt.set(-0.055, 0.016, -0.045).applyQuaternion(shipView.quat);
       stage.camera.up.set(0, 1, 0).applyQuaternion(shipView.quat);
       stage.camera.lookAt(titleTgt);
       chaseQuat.copy(shipView.quat);
