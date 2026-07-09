@@ -78,6 +78,28 @@ export class Editor {
     return out;
   }
 
+  // station-only controls: live greeble uniforms (window/panel detailing) + spin.
+  // _grb is the shader uniform bag stashed by greeble.js at compile time.
+  _stationControls(s, mats) {
+    const grb = mats.filter(m => m.userData._grb).map(m => m.userData._grb);
+    if (grb.length) {
+      this._sec('Station · hull detailing');
+      const u0 = grb[0];
+      const setAll = (k, v) => { for (const u of grb) if (u[k]) u[k].value = v; };
+      this._slider('Window frequency', 2, 120, 1, () => u0.uGWin.value, v => setAll('uGWin', v));
+      this._slider('Window brightness', 0, 6, 0.05, () => u0.uGWinBright.value, v => setAll('uGWinBright', v));
+      this._slider('Window sparsity', 0, 0.98, 0.01, () => u0.uGWinDen.value, v => setAll('uGWinDen', v));
+      this._slider('Panel strength', 0, 0.6, 0.01, () => u0.uGStr.value, v => setAll('uGStr', v));
+      this._color('Window tint', () => hex(u0.uGWinTint.value),
+        h => { for (const u of grb) if (u.uGWinTint) u.uGWinTint.value.set(h); });
+    }
+    const fo = this.fleet.byName.get(s.name);
+    if (fo && fo.spin != null) {
+      this._sec('Station · motion');
+      this._slider('Spin rate', 0, 0.1, 0.001, () => fo.spin, v => { fo.spin = v; });
+    }
+  }
+
   // ---------- render the panel ----------
   render() {
     if (!this.enabled) return;
@@ -147,6 +169,8 @@ export class Editor {
           this._color('Fill light colour', () => hex(sv.selfLit.color), h => sv.selfLit.color.set(h));
           this._slider('Exhaust brightness', 0, 2.5, 0.02, () => sv.exhaustMul, v => { sv.exhaustMul = v; });
           this._color('Exhaust tint', () => hex(sv.exhaustColor), h => sv.exhaustColor.set(h));
+        } else {
+          this._stationControls(s, mats);
         }
       }
     }
@@ -190,7 +214,8 @@ export class Editor {
       L.push(s.name + ' c1=' + hex(u.uC1.value) + ' c2=' + hex(u.uC2.value) + ' c3=' + hex(u.uC3.value)
         + (atmo ? ' atmosphere=' + hex(atmo.uniforms.uColor.value) : ''));
     } else if (s && s.type === 'mat') {
-      const rep = this._mats(s.root).find(m => m.color);
+      const allMats = this._mats(s.root);
+      const rep = allMats.find(m => m.color);
       if (rep) L.push(s.name + ' hull=' + hex(rep.color)
         + ' emissive=' + (rep.emissive ? hex(rep.emissive) : 'n/a')
         + ' emissiveIntensity=' + (rep.emissiveIntensity ?? 1).toFixed(2)
@@ -200,6 +225,20 @@ export class Editor {
         L.push('Starship shipGlow=' + sv.selfGlow.toFixed(2) + ' fillLight=' + sv.selfLit.intensity.toFixed(2)
           + ' fillColour=' + hex(sv.selfLit.color) + ' exhaustBright=' + sv.exhaustMul.toFixed(2)
           + ' exhaustTint=' + hex(sv.exhaustColor));
+      } else {
+        const grb = allMats.filter(m => m.userData._grb).map(m => m.userData._grb);
+        const fo = this.fleet.byName.get(s.name);
+        const parts = [];
+        if (grb.length) {
+          const u = grb[0];
+          parts.push('winFreq=' + u.uGWin.value.toFixed(1)
+            + ' winBright=' + u.uGWinBright.value.toFixed(2)
+            + ' winSparsity=' + u.uGWinDen.value.toFixed(2)
+            + ' panel=' + u.uGStr.value.toFixed(2)
+            + ' winTint=' + hex(u.uGWinTint.value));
+        }
+        if (fo && fo.spin != null) parts.push('spin=' + fo.spin.toFixed(3));
+        if (parts.length) L.push(s.name + ' detail ' + parts.join(' '));
       }
     }
     this.ta.value = L.join('\n');

@@ -118,6 +118,10 @@ export function buildSpacedock(THREE) {
 export function buildRingStation(THREE) {
   const g = new THREE.Group();
   const hull = new THREE.MeshStandardMaterial({ color: 0xccd3dd, metalness: 0.45, roughness: 0.4 });
+  // the main ring gets its own hull instance so greeble can lay windows out in
+  // ring coordinates (see _ringWin branch in greeble.js) instead of confetti
+  const ringHull = new THREE.MeshStandardMaterial({ color: 0xccd3dd, metalness: 0.45, roughness: 0.4 });
+  ringHull.userData._ringWin = true;
   const dark = new THREE.MeshStandardMaterial({ color: 0x6b7480, metalness: 0.6, roughness: 0.5 });
   const deep = new THREE.MeshStandardMaterial({ color: 0x3a4149, metalness: 0.55, roughness: 0.6 });
   const windows = new THREE.MeshStandardMaterial({ color: 0x9fd8ff, emissive: 0x7fc4ff, emissiveIntensity: 0.7 });
@@ -165,7 +169,7 @@ export function buildRingStation(THREE) {
   }
 
   // Main ring: torus r=1.8, tube=0.16, horizontal, with dark rib bands top/bottom
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.16, 24, 96), hull);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.16, 24, 96), ringHull);
   ring.rotation.x = Math.PI / 2;
   g.add(ring);
 
