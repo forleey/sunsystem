@@ -2,7 +2,7 @@
 // OpenRouter, see music_tracks.js); this synthesizes them with Web Audio —
 // no audio files, loops forever. The graph builder is BaseAudioContext-agnostic
 // so the whole engine can be verified with an OfflineAudioContext render.
-import { TRACKS } from './music_tracks.js?v=87';
+import { TRACKS } from './music_tracks.js?v=88';
 
 const midiHz = m => 440 * Math.pow(2, (m - 69) / 12);
 

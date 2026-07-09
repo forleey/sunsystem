@@ -72,6 +72,24 @@ function whitewashTexture(tex) {
   washedTex.set(tex, t);
   return t;
 }
+// per-object material override (editor-tuned station/ship looks). Clones the
+// (shared) GLB materials before mutating. Call after load via loadInto onLoaded.
+export function paintObject(root, spec) {
+  root.traverse(n => {
+    if (!n.isMesh || !n.material) return;
+    n.material = Array.isArray(n.material) ? n.material.map(m => m.clone()) : n.material.clone();
+    const mats = Array.isArray(n.material) ? n.material : [n.material];
+    for (const m of mats) {
+      if (spec.hull != null && m.color) m.color.setHex(spec.hull);
+      if (spec.emissive != null && m.emissive) m.emissive.setHex(spec.emissive);
+      if (spec.emissiveIntensity != null && 'emissiveIntensity' in m) m.emissiveIntensity = spec.emissiveIntensity;
+      if (spec.metalness != null && 'metalness' in m) m.metalness = spec.metalness;
+      if (spec.roughness != null && 'roughness' in m) m.roughness = spec.roughness;
+      m.userData._washed = true;
+    }
+  });
+}
+
 export function whitewashObject(root) {
   root.traverse(n => {
     if (!n.isMesh) return;
