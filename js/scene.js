@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SKY_V, SKY_F, logDepth } from './shaders.js?v=86';
+import { SKY_V, SKY_F, logDepth } from './shaders.js?v=87';
 
 export function toRender(v, out) { return out.set(v.x, v.z, -v.y); }
 
@@ -25,7 +25,7 @@ export function createStage(container) {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.11;   // baked default (main.js LOOK_DEF re-applies on load)
+  renderer.toneMappingExposure = 1.43;   // baked default (main.js LOOK_DEF re-applies on load)
   container.appendChild(renderer.domElement);
 
   const scene = new THREE.Scene();
@@ -36,7 +36,7 @@ export function createStage(container) {
   composer.addPass(new RenderPass(scene, camera));
   // bloom radius/threshold are baked defaults tuned live in the editor; the
   // per-frame strength is driven from ui.state.bloom.
-  const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.54, 0.83);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.0, 0.58, 0.87);
   composer.addPass(bloom);
   composer.addPass(new OutputPass());
   const fxaa = new ShaderPass(FXAAShader);
@@ -50,7 +50,7 @@ export function createStage(container) {
       uTime: { value: 0 },
       uRes: { value: new THREE.Vector2(1, 1) },
       uSat: { value: 1.07 },     // saturation
-      uCon: { value: 0.995 },    // contrast
+      uCon: { value: 1.075 },    // contrast
       uGrain: { value: 1.0 },    // grain strength multiplier
       uVig: { value: 1.0 },      // vignette strength multiplier
     },

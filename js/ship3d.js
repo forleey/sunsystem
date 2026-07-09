@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=86';
-import { C_KMS } from './data.js?v=86';
-import { loadModel } from './models.js?v=86';
+import { toRender } from './scene.js?v=87';
+import { C_KMS } from './data.js?v=87';
+import { loadModel } from './models.js?v=87';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -46,9 +46,9 @@ export class ShipView {
     this.tmpV = new THREE.Vector3();
     this.angVel = new THREE.Vector3();   // local pitch/yaw/roll rates, rad/s (rotational inertia)
     this.glow = 0;                       // throttle glow, lagged (afterburner feel)
-    this.selfGlow = 1.7;                 // ship-light emissive level (editor-tunable)
-    this.exhaustMul = 1;                 // exhaust brightness multiplier (editor-tunable)
-    this.exhaustColor = new THREE.Color(1, 1, 1);   // exhaust tint, multiplies base (editor-tunable)
+    this.selfGlow = 1.2;                 // ship-light emissive level (editor-tunable)
+    this.exhaustMul = 0.36;              // exhaust brightness multiplier (editor-tunable)
+    this.exhaustColor = new THREE.Color(0xd8e7f3);   // exhaust tint, multiplies base (editor-tunable)
   }
 
   buildMesh() {
@@ -109,7 +109,7 @@ export class ShipView {
     this.grp.add(lamp); this.lamp = lamp;   // on grp: survives the GLB swap
     // soft self-fill from the ship's own lights: lifts the shadow side a touch
     // out of pure silhouette (short range, so it barely touches anything else)
-    const selfLit = new THREE.PointLight(0xbcd6ff, 0.4, 0.5, 2);
+    const selfLit = new THREE.PointLight(0x414044, 1.8, 0.5, 2);
     selfLit.position.set(0, 0.02, 0);
     this.grp.add(selfLit); this.selfLit = selfLit;   // editor-tunable fill
 

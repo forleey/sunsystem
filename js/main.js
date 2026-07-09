@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=86';
-import { Sim, V3 } from './physics.js?v=86';
-import { SystemView } from './bodies3d.js?v=86';
-import { ShipView } from './ship3d.js?v=86';
-import { UI } from './ui.js?v=86';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=86';
-import { Fleet } from './fleet.js?v=86';
-import { Music, renderTest } from './music.js?v=86';
-import { initEnvironment } from './models.js?v=86';
-import { Combat } from './combat.js?v=86';
-import { Sfx } from './sfx.js?v=86';
-import { Editor } from './editor.js?v=86';
+import { createStage, makeSky } from './scene.js?v=87';
+import { Sim, V3 } from './physics.js?v=87';
+import { SystemView } from './bodies3d.js?v=87';
+import { ShipView } from './ship3d.js?v=87';
+import { UI } from './ui.js?v=87';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=87';
+import { Fleet } from './fleet.js?v=87';
+import { Music, renderTest } from './music.js?v=87';
+import { initEnvironment } from './models.js?v=87';
+import { Combat } from './combat.js?v=87';
+import { Sfx } from './sfx.js?v=87';
+import { Editor } from './editor.js?v=87';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -471,7 +471,7 @@ function frameBody(now) {
 
 // ---- visual look: adjustable and persistable as default (localStorage) ----
 const LOOK_KEY = 'sunsystem-look-v1';
-const LOOK_DEF = { bloom: 0.05, exposure: 1.11, contrast: 0.995, saturation: 1.07, grain: 1, vignette: 1, film: true };
+const LOOK_DEF = { bloom: 0.06, exposure: 1.43, contrast: 1.075, saturation: 1.07, grain: 1, vignette: 1, film: true };
 const look = { ...LOOK_DEF, ...(JSON.parse(localStorage.getItem(LOOK_KEY) || 'null') || {}) };
 const filmU = stage.film.material.uniforms;
 const LOOK_BIND = [

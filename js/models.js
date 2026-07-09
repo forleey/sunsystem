@@ -121,24 +121,19 @@ function raiderPaint(root) {
   });
 }
 
-// player paint: dark gunmetal grey, more metallic + glossier than the white
-// fleet (reads as the hero hull). Keeps engine/window emissive glows.
+// player paint: black hull (editor-tuned), matte-ish, self-lit by its own
+// window/port emissive + fill light. Drops the albedo map (no markings/colour).
 function playerPaint(root) {
   root.traverse(n => {
     if (!n.isMesh) return;
     n.material = Array.isArray(n.material) ? n.material.map(m => m.clone()) : n.material.clone();
     const mats = Array.isArray(n.material) ? n.material : [n.material];
     for (const m of mats) {
-      // drop the albedo map: removes painted hull lettering/markings + colour,
-      // leaving a clean colourless grey. Keep the emissive map (the ship lights).
-      if (m.map) m.map = null;
-      if (m.color) {
-        const c = m.color, lum = 0.299 * c.r + 0.587 * c.g + 0.114 * c.b;
-        const v = 0.30 + lum * 0.14;           // neutral mid grey, no tint
-        c.setRGB(v, v, v);
-      }
-      if ('metalness' in m) m.metalness = 0.6;
-      if ('roughness' in m) m.roughness = 0.34;
+      if (m.map) m.map = null;                 // strip painted lettering/markings + colour
+      if (m.color) m.color.setHex(0x000000);   // black hull
+      if (m.emissive) m.emissive.setHex(0xe6e6e6);
+      if ('metalness' in m) m.metalness = 0.2;
+      if ('roughness' in m) m.roughness = 0.56;
       m.userData._washed = true;
     }
   });
