@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=95';
-import { C_KMS } from './data.js?v=95';
-import { loadModel } from './models.js?v=95';
+import { toRender } from './scene.js?v=98';
+import { C_KMS } from './data.js?v=98';
+import { loadModel } from './models.js?v=98';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 

@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=95';
-import { fmtKm } from './data.js?v=95';
-import { loadInto } from './models.js?v=95';
-import { buildWarship } from './fleet_meshes.js?v=95';
-import { fromRender } from './ship3d.js?v=95';
-import { Sfx } from './sfx.js?v=95';
+import { toRender } from './scene.js?v=98';
+import { fmtKm } from './data.js?v=98';
+import { loadInto } from './models.js?v=98';
+import { buildWarship } from './fleet_meshes.js?v=98';
+import { fromRender } from './ship3d.js?v=98';
+import { Sfx } from './sfx.js?v=98';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
@@ -41,7 +41,11 @@ export class Combat {
     this._musT = 0;
     this.agents = []; this.torps = []; this.beams = []; this.fx = [];
     this.beamPool = [];
-    this.animPool = [];   // reusable explosion-flipbook sprites
+    // recycled explosion pieces: flipbook sprites, birth flashes, smoke puffs,
+    // light pulses, debris chunks (each carries its own material/texture clone)
+    this.animPool = []; this.flashPool = []; this.smokePool = [];
+    this.lightPool = []; this.debrisPool = [];
+    this.deathT = null;   // player-death hold: fireball plays before the beam-out
     this.pending = []; this.drafted = [];
     this.lock = null;
     this.playerHp = PLAYER_HP; this.kills = 0; this.wave = 0;
@@ -66,6 +70,7 @@ export class Combat {
     document.body.classList.toggle('combat', on);
     if (on) {
       this.kills = 0; this.wave = 0; this.playerHp = PLAYER_HP;
+      this.deathT = null;
       this.invulnT = 2; this.waveT = 2.5; this.t = 0; this.raiderSeq = 0;
       this.pending = [];   // no escorts: it's you against the raiders
       this.sfx.unlock();
@@ -82,6 +87,7 @@ export class Combat {
       for (const f of this.fx) this._clearFx(f);
       this.agents = []; this.torps = []; this.beams = []; this.fx = [];
       this.pending = []; this.lock = null;
+      if (this.deathT !== null) { this.deathT = null; this.playerHp = PLAYER_HP; }
       this.tgtEl.style.display = 'none';
       this.dmgFlash = 0; this.dmgEl.style.opacity = 0;
       document.getElementById('reticle').classList.remove('hot');
@@ -151,6 +157,16 @@ export class Combat {
     this.cdL -= dt; this.cdT -= dt;
     this.invulnT -= dt;
     this.dmgFlash = Math.max(0, this.dmgFlash - 1.7 * dt);
+
+    // player-death hold: the wreck burns for a beat, then the emergency beam-out
+    if (this.deathT !== null) {
+      this.deathT -= dt;
+      if (this.deathT <= 0) {
+        this.deathT = null;
+        this.playerHp = PLAYER_HP;
+        this.onPlayerDeath();
+      }
+    }
 
     // threat level drives the Red Alert crossfade (nearest raider distance)
     this._musT -= dt;
@@ -361,12 +377,12 @@ export class Combat {
       this.playerHp -= dmg;
       this.dmgFlash = Math.min(1, this.dmgFlash + 0.55);
       this.sfx.hit();
-      if (this.playerHp <= 0) {
-        this.boom(this.sim.ship.pos, 2.2, 1.4);
+      if (this.playerHp <= 0 && this.deathT === null) {
+        this.playerHp = 0;
+        this.boom(this.sim.ship.pos, 3.0, 1.9);   // full kit: fireball, flash, smoke, debris
         this.sfx.boom(1, true);
-        this.playerHp = PLAYER_HP;
-        this.invulnT = 6;
-        this.onPlayerDeath();
+        this.invulnT = 9;
+        this.deathT = 1.35;   // hold the camera on the blast, then beam out (update())
       }
       return;
     }
@@ -375,7 +391,7 @@ export class Combat {
     target.hp -= dmg;
     if (target.hp > 0) return;
     target.alive = false;
-    this.boom(target.pos, 1.1, 1.0);
+    this.boom(target.pos, 1.35, 1.15);
     this.sfx.boom(Math.max(0.25, this.att0(target.pos)), true);
     if (target === this.lock) this.lock = null;
     this.ui.removeLabel(target.name);
@@ -427,9 +443,11 @@ export class Combat {
       core.frustumCulled = shell.frustumCulled = false;
       this.scene.add(core); this.scene.add(shell);
     }
-    // real explosions get the flipbook fireball, a billboarded shockwave ring
-    // and a burst of flung embers
-    let ring = null, anim = null; const embers = [];
+    // real explosions get the full kit: birth flash + flipbook fireball +
+    // light pulse on nearby hulls + shockwave ring + dragged embers, and for
+    // warm (hull) blasts also tumbling debris and lingering dark smoke
+    let ring = null, anim = null, flash = null, light = null;
+    const embers = [], smokes = [], debris = [];
     if (big) {
       anim = this.animPool.pop();
       if (!anim) {
@@ -444,29 +462,87 @@ export class Combat {
       }
       anim.visible = true;
       anim.material.color.copy(cold ? EXPLO_COLD : EXPLO_WARM);
+      anim.material.opacity = 1;
       anim.material.rotation = Math.random() * Math.PI * 2;   // vary so repeats don't twin
+      flash = this.flashPool.pop();
+      if (!flash) {
+        flash = new THREE.Sprite(new THREE.SpriteMaterial({
+          map: flashTex, transparent: true, depthWrite: false, toneMapped: false,
+          blending: THREE.AdditiveBlending,
+        }));
+        flash.frustumCulled = false;
+        this.scene.add(flash);
+      }
+      flash.visible = true;
+      flash.material.color.setRGB(...(cold ? [2, 2.6, 4] : [3.4, 3.0, 2.5]));
+      light = this.lightPool.pop();
+      if (!light) {
+        light = new THREE.PointLight(0xffffff, 0, 0, 2);
+        this.scene.add(light);
+      }
+      light.visible = true;
+      light.color.setHex(cold ? 0x88bbff : 0xffb469);
       ring = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({
         transparent: true, toneMapped: false, side: THREE.DoubleSide, depthWrite: false,
         color: cold ? new THREE.Color(2, 4, 7) : new THREE.Color(7, 3.2, 0.8),
       }));
       ring.frustumCulled = false; this.scene.add(ring);
-      for (let i = 0; i < 16; i++) {
+      for (let i = 0; i < 22; i++) {
         const em = new THREE.Mesh(emberGeo, new THREE.MeshBasicMaterial({
           transparent: true, toneMapped: false,
           color: cold ? new THREE.Color(3, 5, 8) : new THREE.Color(9, 4.5, 1.2),
         }));
         em.frustumCulled = false; this.scene.add(em);
-        embers.push({ mesh: em, dir: randDir(), sp: r * (0.7 + Math.random() * 1.9) });
+        embers.push({ mesh: em, dir: randDir(), sp: r * (0.9 + Math.random() * 2.6) });
+      }
+      if (!cold) {
+        for (let i = 0; i < 3; i++) {
+          let spr = this.smokePool.pop();
+          if (!spr) {
+            spr = new THREE.Sprite(new THREE.SpriteMaterial({
+              map: smokeTex, transparent: true, depthWrite: false,   // NORMAL blending: dark smoke reads
+            }));
+            spr.frustumCulled = false;
+            this.scene.add(spr);
+          }
+          spr.visible = true;
+          spr.material.color.setRGB(0.085, 0.085, 0.098);
+          spr.material.opacity = 0;
+          smokes.push({ spr, dir: randDir(), off: r * (0.15 + Math.random() * 0.5),
+            rot0: Math.random() * Math.PI * 2, spin: (Math.random() - 0.5) * 0.7,
+            sc: 0.8 + Math.random() * 0.5 });
+        }
+        for (let i = 0; i < 8; i++) {
+          let mesh = this.debrisPool.pop();
+          if (!mesh) {
+            mesh = new THREE.Mesh(debrisGeo, new THREE.MeshBasicMaterial({ color: 0x16181d, transparent: true }));
+            mesh.frustumCulled = false;
+            this.scene.add(mesh);
+          }
+          mesh.visible = true;
+          mesh.material.opacity = 1;
+          debris.push({ mesh, dir: randDir(), sp: r * (0.5 + Math.random() * 1.6),
+            av: { x: (Math.random() - 0.5) * 9, y: (Math.random() - 0.5) * 9, z: (Math.random() - 0.5) * 9 },
+            sc: r * (0.012 + Math.random() * 0.02) });
+        }
       }
     }
-    this.fx.push({ pos: { ...pos }, t: 0, dur, r, core, shell, ring, embers, anim });
+    // fire phase = the dur the caller asked for; warm blasts keep smoking longer
+    const durAll = big && !cold ? dur * 1.9 : dur;
+    this.fx.push({ pos: { ...pos }, t: 0, dur: durAll, durF: dur, r, core, shell,
+      ring, embers, anim, flash, light, smokes, debris });
   }
 
   _clearFx(f) {
     if (f.core) { this.scene.remove(f.core); this.scene.remove(f.shell); }
     if (f.ring) this.scene.remove(f.ring);
     if (f.embers) for (const em of f.embers) this.scene.remove(em.mesh);
-    if (f.anim) { f.anim.visible = false; this.animPool.push(f.anim); }   // recycle sprite + texture
+    // pooled pieces: hide + recycle (sprites keep their texture clones)
+    if (f.anim) { f.anim.visible = false; this.animPool.push(f.anim); }
+    if (f.flash) { f.flash.visible = false; this.flashPool.push(f.flash); }
+    if (f.light) { f.light.visible = false; f.light.intensity = 0; this.lightPool.push(f.light); }
+    if (f.smokes) for (const s of f.smokes) { s.spr.visible = false; this.smokePool.push(s.spr); }
+    if (f.debris) for (const d of f.debris) { d.mesh.visible = false; this.debrisPool.push(d.mesh); }
   }
 
   // place combat visuals relative to the focus (floating origin)
@@ -499,7 +575,9 @@ export class Combat {
       m.material.opacity = (1 - b.t / b.dur) * fade;
     }
     for (const f of this.fx) {
-      const k = f.t / f.dur, e = 1 - (1 - k) * (1 - k);
+      const kA = f.t / f.dur;                          // whole-effect age (incl. smoke tail)
+      const kf = Math.min(1, f.t / f.durF);            // fire-phase age
+      const e = 1 - (1 - kf) * (1 - kf);
       this._p.x = f.pos.x - fPos.x; this._p.y = f.pos.y - fPos.y; this._p.z = f.pos.z - fPos.z;
       toRender(this._p, this._u);                      // render-space centre of this fx
       if (f.core) {                                    // procedural spark core (small hits only)
@@ -507,33 +585,72 @@ export class Combat {
         f.shell.position.copy(this._u);
         f.core.scale.setScalar(Math.max(0.02, f.r * (0.15 + 0.5 * e)));
         f.shell.scale.setScalar(Math.max(0.03, f.r * (0.2 + 0.8 * e)));
-        f.core.material.opacity = Math.pow(1 - k, 1.6);
-        f.shell.material.opacity = (1 - k) * 0.8;
+        f.core.material.opacity = Math.pow(1 - kf, 1.6);
+        f.shell.material.opacity = (1 - kf) * 0.8;
       }
       if (f.anim) {                                    // flipbook fireball, billboarded
         f.anim.position.copy(this._u);
-        const fr = Math.min(EXPLO_FRAMES - 1, (k * EXPLO_FRAMES) | 0);
+        const fr = Math.min(EXPLO_FRAMES - 1, (kf * EXPLO_FRAMES) | 0);
         f.anim.material.map.offset.set(
           (fr % EXPLO_COLS) / EXPLO_COLS,
           1 - (((fr / EXPLO_COLS) | 0) + 1) / EXPLO_ROWS,
         );
-        const sc = f.r * 2.8;
+        const sc = f.r * (2.2 + 1.1 * e);              // fireball swells as it burns
         f.anim.scale.set(sc, sc, 1);
-        f.anim.material.opacity = Math.min(1, 2.6 * (1 - k));
+        f.anim.material.opacity = kf >= 1 ? 0 : 1;     // atlas carries its own fade
+      }
+      if (f.flash) {                                   // birth flash: bright kernel, gone in ~0.14 durF
+        const kFl = Math.min(1, f.t / (f.durF * 0.14));
+        f.flash.position.copy(this._u);
+        const sc = f.r * (0.7 + 2.0 * kFl);
+        f.flash.scale.set(sc, sc, 1);
+        f.flash.material.opacity = Math.pow(1 - kFl, 1.8) * 0.85;
+      }
+      if (f.light) {                                   // light pulse licks nearby hulls
+        f.light.position.copy(this._u);
+        f.light.intensity = 26 * f.r * f.r * Math.pow(1 - kf, 2.4);
       }
       if (f.ring) {                                    // shockwave: fast expand, hard fade, billboard
         f.ring.position.copy(this._u);
         if (camera) f.ring.quaternion.copy(camera.quaternion);
         f.ring.scale.setScalar(Math.max(0.02, f.r * (0.3 + 3.6 * e)));
-        f.ring.material.opacity = Math.pow(1 - k, 2.2) * 0.85;
+        f.ring.material.opacity = Math.pow(1 - kf, 2.2) * 0.85;
       }
-      for (const em of f.embers) {                     // flung debris
-        this._p.x = f.pos.x + em.dir.x * em.sp * f.t - fPos.x;
-        this._p.y = f.pos.y + em.dir.y * em.sp * f.t - fPos.y;
-        this._p.z = f.pos.z + em.dir.z * em.sp * f.t - fPos.z;
+      for (const em of f.embers) {                     // sparks: drag bleeds their speed
+        const dd = (1 - Math.exp(-1.7 * f.t)) / 1.7;
+        const kE = Math.min(1, f.t / (f.durF * 1.3));   // embers outlive the fire a little
+        this._p.x = f.pos.x + em.dir.x * em.sp * dd - fPos.x;
+        this._p.y = f.pos.y + em.dir.y * em.sp * dd - fPos.y;
+        this._p.z = f.pos.z + em.dir.z * em.sp * dd - fPos.z;
         toRender(this._p, em.mesh.position);
-        em.mesh.scale.setScalar(Math.max(0.008, f.r * 0.12 * (1 - k)));
-        em.mesh.material.opacity = 1 - k;
+        em.mesh.scale.setScalar(Math.max(0.008, f.r * 0.1 * (1 - kE)));
+        em.mesh.material.opacity = 1 - kE;
+      }
+      for (const s of f.smokes) {                      // dark smoke blooms after the fire peak
+        const s0 = f.durF * 0.3;
+        if (f.t <= s0) { s.spr.material.opacity = 0; continue; }
+        const ks = Math.min(1, (f.t - s0) / (f.dur - s0));
+        const drift = s.off * (0.5 + 0.8 * ks);
+        this._p.x = f.pos.x + s.dir.x * drift - fPos.x;
+        this._p.y = f.pos.y + s.dir.y * drift - fPos.y;
+        this._p.z = f.pos.z + s.dir.z * drift - fPos.z;
+        toRender(this._p, s.spr.position);
+        const sc = f.r * s.sc * (1.3 + 2.6 * ks);
+        s.spr.scale.set(sc, sc, 1);
+        s.spr.material.rotation = s.rot0 + s.spin * f.t;
+        s.spr.material.opacity = 0.58 * (ks < 0.22 ? ks / 0.22 : 1 - (ks - 0.22) / 0.78);
+      }
+      for (const d of f.debris) {                      // tumbling hull chunks
+        const dd = (1 - Math.exp(-0.9 * f.t)) / 0.9;
+        this._p.x = f.pos.x + d.dir.x * d.sp * dd - fPos.x;
+        this._p.y = f.pos.y + d.dir.y * d.sp * dd - fPos.y;
+        this._p.z = f.pos.z + d.dir.z * d.sp * dd - fPos.z;
+        toRender(this._p, d.mesh.position);
+        d.mesh.rotation.set(d.av.x * f.t, d.av.y * f.t, d.av.z * f.t);
+        d.mesh.scale.setScalar(d.sc);
+        // fire-lit early, cooling to near-black wreckage
+        d.mesh.material.color.setRGB(0.45 * (1 - kf) + 0.06, 0.25 * (1 - kf) + 0.06, 0.12 * (1 - kf) + 0.07);
+        d.mesh.material.opacity = kA < 0.7 ? 1 : Math.max(0, 1 - (kA - 0.7) / 0.3);
       }
     }
   }
@@ -675,15 +792,82 @@ const boomGeo = new THREE.SphereGeometry(1, 18, 12);
 const ringGeo = new THREE.RingGeometry(0.82, 1.0, 48);
 const emberGeo = new THREE.SphereGeometry(0.05, 6, 5);
 
-// CC0 explosion flipbook (opengameart.org/content/explosion-7, public domain):
-// a 10x5 grid of 50 frames, billboarded and advanced across each big boom's
-// life. Additive + an HDR tint so the fireball blooms. Small laser sparks stay
-// procedural; this only spins up for real hits (r >= 0.5).
-const EXPLO_COLS = 10, EXPLO_ROWS = 5, EXPLO_FRAMES = 50;
-const exploTex = new THREE.TextureLoader().load('./textures/explosion.png');
-exploTex.colorSpace = THREE.SRGBColorSpace;
-const EXPLO_WARM = new THREE.Color(1.5, 1.15, 0.9);
-const EXPLO_COLD = new THREE.Color(0.6, 0.95, 1.7);
+// Procedurally rendered explosion kit, no texture files:
+//   exploTex: 6x6 radial fireball flipbook (white-hot core cooling through
+//     orange to deep red), drawn for additive blending, so no dark smoke
+//     frames (black adds nothing); the smoke is its own NORMAL-blended layer.
+//   smokeTex/flashTex: soft puffs for the lingering smoke and the birth flash.
+// Small laser sparks stay procedural spheres; the kit spins up for r >= 0.5.
+const EXPLO_COLS = 6, EXPLO_ROWS = 6, EXPLO_FRAMES = 36;
+const EXPLO_WARM = new THREE.Color(1.35, 1.18, 1.02);
+const EXPLO_COLD = new THREE.Color(0.55, 0.85, 1.7);
+
+function fireRamp(a) {   // fire colour by age 0..1: white -> amber -> ember red
+  const S = [[255, 255, 244], [255, 228, 140], [255, 158, 54], [219, 84, 28], [122, 32, 14], [54, 16, 8]];
+  const x = Math.max(0, Math.min(0.999, a)) * (S.length - 1);
+  const i = x | 0, f = x - i, A = S[i], B = S[i + 1];
+  return [Math.round(A[0] + (B[0] - A[0]) * f), Math.round(A[1] + (B[1] - A[1]) * f), Math.round(A[2] + (B[2] - A[2]) * f)];
+}
+function blobGrad(g, x, y, r, c, a) {
+  const gr = g.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, `rgba(${c[0]},${c[1]},${c[2]},${a.toFixed(3)})`);
+  gr.addColorStop(0.55, `rgba(${c[0]},${c[1]},${c[2]},${(a * 0.5).toFixed(3)})`);
+  gr.addColorStop(1, `rgba(${c[0]},${c[1]},${c[2]},0)`);
+  g.fillStyle = gr;
+  g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+}
+function makeExploAtlas() {
+  const F = 160, cv = document.createElement('canvas');
+  cv.width = F * EXPLO_COLS; cv.height = F * EXPLO_ROWS;
+  const g = cv.getContext('2d');
+  g.globalCompositeOperation = 'lighter';
+  let s = 987654321;   // deterministic turbulence: same blob flies coherently across frames
+  const rnd = () => ((s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+  const blobs = [];
+  for (let i = 0; i < 26; i++) {
+    const an = rnd() * Math.PI * 2, up = rnd() * 2 - 1, rr = Math.sqrt(1 - up * up);
+    blobs.push({ x: Math.cos(an) * rr, y: up * 0.92, fly: 0.2 + rnd() * 0.8,
+      sz: 0.14 + rnd() * 0.17, ph: rnd() * 0.3 });
+  }
+  for (let n = 0; n < EXPLO_FRAMES; n++) {
+    const p = n / (EXPLO_FRAMES - 1);
+    const cx = (n % EXPLO_COLS) * F + F / 2, cy = ((n / EXPLO_COLS) | 0) * F + F / 2;
+    const R = F * 0.47;
+    const grow = 1 - Math.pow(1 - Math.min(1, p * 1.18), 2);              // fast expand, then coast
+    const fade = p < 0.62 ? 1 : Math.pow(1 - (p - 0.62) / 0.38, 1.5);
+    const coreR = R * (0.16 + 0.36 * grow) * (1 - p * 0.72);              // white-hot heart
+    if (coreR > 1) blobGrad(g, cx, cy, coreR, fireRamp(p * 0.5), 0.95 * fade);
+    for (const b of blobs) {                                              // turbulent shell
+      const a = (p - b.ph) / (1 - b.ph);
+      if (a <= 0) continue;
+      const d = R * b.fly * grow * (0.35 + 0.65 * a);
+      const sz = R * b.sz * (0.55 + 0.85 * Math.sin(Math.PI * Math.min(1, a * 1.05))) * (0.55 + 0.45 * grow);
+      if (sz < 1) continue;
+      blobGrad(g, cx + b.x * d, cy + b.y * d, sz, fireRamp(0.1 + 0.9 * a), (1 - a * a) * fade);
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+function makePuffTex(core) {   // soft round puff; core sets the bright plateau width
+  const S = 128, cv = document.createElement('canvas');
+  cv.width = cv.height = S;
+  const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+  gr.addColorStop(0, 'rgba(255,255,255,1)');
+  gr.addColorStop(core, 'rgba(255,255,255,0.82)');
+  gr.addColorStop(0.82, 'rgba(255,255,255,0.16)');
+  gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, S, S);
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+const exploTex = makeExploAtlas();
+const smokeTex = makePuffTex(0.3);
+const flashTex = makePuffTex(0.5);
+const debrisGeo = new THREE.TetrahedronGeometry(1);
 
 function validTarget(t) { return t === 'player' || (t && t.alive); }
 function dist2(a, b) {
