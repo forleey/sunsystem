@@ -2,15 +2,15 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=90';
-import { G0 } from './data.js?v=90';
+import { toRender } from './scene.js?v=92';
+import { G0 } from './data.js?v=92';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=90';
-import { loadInto, whitewashObject, paintObject } from './models.js?v=90';
-import { applyGreebleShading } from './greeble.js?v=90';
-import { buildGreebleStation } from './megastation.js?v=90';
+} from './fleet_meshes.js?v=92';
+import { loadInto, whitewashObject, paintObject } from './models.js?v=92';
+import { applyGreebleShading } from './greeble.js?v=92';
+import { buildGreebleStation } from './megastation.js?v=92';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
@@ -31,10 +31,12 @@ const FWD = new THREE.Vector3(0, 0, -1);
 // washed so the fleet whitewash pass leaves them alone. Runs AFTER greeble so the
 // window/panel shading rides on top of the tuned base colour.
 function paintStation(root, spec) {
-  root.traverse(n => {
+  const seen = new Set();   // glow mats are shared across many meshes; the glow
+  root.traverse(n => {       // multiplier must apply once per material, not per mesh
     if (!n.isMesh) return;
     for (const m of (Array.isArray(n.material) ? n.material : [n.material])) {
-      if (!m) continue;
+      if (!m || seen.has(m.uuid)) continue;
+      seen.add(m.uuid);
       if (m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.2 && !m.map) {
         // windows / ports / blinkers keep their light, but honour baked Lights tweaks
         if (spec.glow != null && 'emissiveIntensity' in m) m.emissiveIntensity *= spec.glow;
@@ -72,7 +74,7 @@ export class Fleet {
     const jove = buildGateway(THREE); jove.scale.setScalar(632);          // 5.5 km build -> 3475 km
     this.addOrbiter('Jove Gateway', jove, B('Jupiter'), 450000, 0.4, 0.15, 1737, 0.008);
     const cronos = buildRingStation(THREE); cronos.scale.setScalar(594);  // 4 km build -> 2376 km
-    this.addOrbiter('Cronos Station', cronos, B('Saturn'), 400000, 2.2, 0.40, 1190, 0.01);
+    this.addOrbiter('Cronos Station', cronos, B('Saturn'), 400000, 2.2, 0.40, 1190, 0.008);
     // K-7: O'Neill cylinder habitat — spins around its long axis (set vertical,
     // so the orbiter spin drives the gravity rotation). White hull, warm window
     // stripes; owns its palette (noWash), so it skips the fleet whitewash.
@@ -84,9 +86,10 @@ export class Fleet {
     applyGreebleShading(spacedock);
     applyGreebleShading(utopia, { winFreq: 46, winBright: 2.0, winDensity: 0.70, ringR: 1.8 });
     applyGreebleShading(jove);
-    applyGreebleShading(cronos, { winFreq: 46, winBright: 2.4, winDensity: 0.66, winTint: 0xffdca8, ringR: 1.8 });
-    // baked Cronos look (editor readout 2026-07-09): grey hull, faint blue self-glow
-    paintStation(cronos, { hull: 0x949494, emissive: 0x030014, emissiveIntensity: 0.40, metalness: 0.79, roughness: 0.34 });
+    applyGreebleShading(cronos, { winFreq: 98, winBright: 6.0, winDensity: 0.97, winTint: 0xffdca8, ringR: 1.8 });
+    // baked Cronos look (editor readout 2026-07-10): glossy blue-grey hull, warm
+    // olive self-glow, sparse but blazing windows + bright warm ports (lights x3.7)
+    paintStation(cronos, { hull: 0x697696, emissive: 0x141000, emissiveIntensity: 0.50, metalness: 0.55, roughness: 0.10, glow: 3.70, glowColor: 0xc7c2a3 });
     this.addOrbiter('ISS', mkISS(), B('Earth'), 6791, 0.0, 0.90, 0.06, 0);
     // NASA Gateway (real CAD model) parked around the Moon
     this.addOrbiter('Lunar Gateway', loadInto(buildISS(THREE), 'gateway_station.glb', { lengthKm: 0.04, blinkers: 0,
