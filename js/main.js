@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=94';
-import { Sim, V3 } from './physics.js?v=94';
-import { SystemView } from './bodies3d.js?v=94';
-import { ShipView } from './ship3d.js?v=94';
-import { UI } from './ui.js?v=94';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=94';
-import { Fleet } from './fleet.js?v=94';
-import { Music, renderTest } from './music.js?v=94';
-import { initEnvironment } from './models.js?v=94';
-import { Combat } from './combat.js?v=94';
-import { Sfx } from './sfx.js?v=94';
-import { Editor } from './editor.js?v=94';
+import { createStage, makeSky } from './scene.js?v=95';
+import { Sim, V3 } from './physics.js?v=95';
+import { SystemView } from './bodies3d.js?v=95';
+import { ShipView } from './ship3d.js?v=95';
+import { UI } from './ui.js?v=95';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=95';
+import { Fleet } from './fleet.js?v=95';
+import { Music, renderTest } from './music.js?v=95';
+import { initEnvironment } from './models.js?v=95';
+import { Combat } from './combat.js?v=95';
+import { Sfx } from './sfx.js?v=95';
+import { Editor } from './editor.js?v=95';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -399,7 +399,9 @@ function frameBody(now) {
   fleet.tick(sim.time);
 
   focusPos(fPos);
-  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG);
+  // battle mode: combat impulse limiter, max speed (and with it thrust accel,
+  // which scales off it) is cut to 20% so dogfights stay inside the arena
+  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG * (combat.enabled ? 0.2 : 1));
 
   // engine bed: volume is keyed to how long thrust is held, not to throttle.
   // Holding Space ramps it up over ~1.8 s; releasing fades it over ~1.1 s.

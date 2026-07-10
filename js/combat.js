@@ -14,12 +14,12 @@
 // agent instead of the analytic rail, and releasing them (o.combat = null)
 // puts them right back on patrol.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=94';
-import { fmtKm } from './data.js?v=94';
-import { loadInto } from './models.js?v=94';
-import { buildWarship } from './fleet_meshes.js?v=94';
-import { fromRender } from './ship3d.js?v=94';
-import { Sfx } from './sfx.js?v=94';
+import { toRender } from './scene.js?v=95';
+import { fmtKm } from './data.js?v=95';
+import { loadInto } from './models.js?v=95';
+import { buildWarship } from './fleet_meshes.js?v=95';
+import { fromRender } from './ship3d.js?v=95';
+import { Sfx } from './sfx.js?v=95';
 
 const LASER = { range: 12, cone: 0.86, cd: 0.32, dmg: 9 };
 const AI_LASER = { range: 10.5, cdFoe: 1.15, cdFed: 0.85, dmgFoe: 6, dmgFed: 7 };
@@ -71,7 +71,7 @@ export class Combat {
       this.sfx.unlock();
       this.sfx.alert();
       if (this.music) this.music.armCombat();
-      this.ui.toast('BATTLE MODE — raiders inbound · G lasers · T torpedo · R target · Esc stand down', 6000);
+      this.ui.toast('BATTLE MODE · impulse limited to 20% · G lasers · T torpedo · R target · Esc stand down', 6000);
     } else {
       for (const a of [...this.agents]) {
         if (a.side === 'foe') { this.fleet.remove(a.o); this.ui.removeLabel(a.name); }
