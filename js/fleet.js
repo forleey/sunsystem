@@ -2,19 +2,18 @@
 // function of sim time in the physics frame (km, ecliptic): warp-proof,
 // zero integration cost, and independent of the player's Kepler rails.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=93';
-import { G0 } from './data.js?v=93';
+import { toRender } from './scene.js?v=94';
+import { G0 } from './data.js?v=94';
 import {
   buildSpacedock, buildRingStation, buildGateway, buildISS,
   buildFreighter, buildWarship, buildScout,
-} from './fleet_meshes.js?v=93';
-import { loadInto, whitewashObject, paintObject } from './models.js?v=93';
-import { applyGreebleShading } from './greeble.js?v=93';
-import { buildGreebleStation } from './megastation.js?v=93';
+} from './fleet_meshes.js?v=94';
+import { loadInto, whitewashObject, paintObject } from './models.js?v=94';
+import { applyGreebleShading } from './greeble.js?v=94';
+import { buildGreebleStation } from './megastation.js?v=94';
 
 // open-source GLBs (R2-hosted) swapped over the procedural fallbacks;
 // yaw/pitch/roll turn each model's nose to -Z (checked in model_viewer.html?axes=1)
-const mkISS = () => loadInto(buildISS(THREE), 'iss.glb', { lengthKm: 0.109, blinkers: 0 });
 const mkFreighter = () => loadInto(buildFreighter(THREE), 'freighter.glb', { lengthKm: 0.24, yaw: 0, blinkers: 3 });
 const mkWarship = () => loadInto(buildWarship(THREE), 'warship.glb', { lengthKm: 0.16, yaw: Math.PI, blinkers: 3 });
 const mkScout = () => loadInto(buildScout(THREE), 'scout.glb', { lengthKm: 0.06, yaw: Math.PI, blinkers: 2 });
@@ -81,19 +80,28 @@ export class Fleet {
     const k7 = buildGreebleStation(THREE, { seed: 7 });
     k7.scale.setScalar(297);
     this.addOrbiter('Station K-7', k7, B('Sun'), 4.19e8, 2.6, 0.12, 1190, 0.02);
+    // one shared station identity, baked from the Cronos editor readout
+    // (2026-07-10): glossy blue-grey hull, warm olive self-glow, sparse but
+    // blazing warm windows (lights x3.7). K-7 keeps its bespoke O'Neill palette.
+    const STATION_LOOK = { hull: 0x697696, emissive: 0x141000, emissiveIntensity: 0.50, metalness: 0.55, roughness: 0.10, glow: 3.70, glowColor: 0xc7c2a3 };
+    const STATION_GREEBLE = { winFreq: 98, winBright: 6.0, winDensity: 0.97, winTint: 0xffdca8 };
     // every procedural Star Trek station gets generative hull detailing (panels,
     // seams, windows), and with it the "hull detailing" sliders in the editor
-    applyGreebleShading(spacedock);
-    applyGreebleShading(utopia, { winFreq: 46, winBright: 2.0, winDensity: 0.70, ringR: 1.8 });
-    applyGreebleShading(jove);
-    applyGreebleShading(cronos, { winFreq: 98, winBright: 6.0, winDensity: 0.97, winTint: 0xffdca8, ringR: 1.8 });
-    // baked Cronos look (editor readout 2026-07-10): glossy blue-grey hull, warm
-    // olive self-glow, sparse but blazing windows + bright warm ports (lights x3.7)
-    paintStation(cronos, { hull: 0x697696, emissive: 0x141000, emissiveIntensity: 0.50, metalness: 0.55, roughness: 0.10, glow: 3.70, glowColor: 0xc7c2a3 });
-    this.addOrbiter('ISS', mkISS(), B('Earth'), 6791, 0.0, 0.90, 0.06, 0);
+    applyGreebleShading(spacedock, { ...STATION_GREEBLE });
+    applyGreebleShading(utopia, { ...STATION_GREEBLE, ringR: 1.8 });
+    applyGreebleShading(jove, { ...STATION_GREEBLE });
+    applyGreebleShading(cronos, { ...STATION_GREEBLE, ringR: 1.8 });
+    paintStation(spacedock, STATION_LOOK);
+    paintStation(utopia, STATION_LOOK);
+    paintStation(jove, STATION_LOOK);
+    paintStation(cronos, STATION_LOOK);
+    // GLB stations wear the same identity (paintObject clones, then paints)
+    this.addOrbiter('ISS', loadInto(buildISS(THREE), 'iss.glb', { lengthKm: 0.109, blinkers: 0,
+      onLoaded: m => paintObject(m, STATION_LOOK) }),
+      B('Earth'), 6791, 0.0, 0.90, 0.06, 0);
     // NASA Gateway (real CAD model) parked around the Moon
     this.addOrbiter('Lunar Gateway', loadInto(buildISS(THREE), 'gateway_station.glb', { lengthKm: 0.04, blinkers: 0,
-      onLoaded: m => paintObject(m, { hull: 0x707070, emissive: 0x030014, emissiveIntensity: 0.5, metalness: 1.0, roughness: 0.87 }) }),
+      onLoaded: m => paintObject(m, STATION_LOOK) }),
       B('Moon'), 3500, 1.0, 1.20, 0.025, 0);
 
     // ---------- warship patrols: powered impulse circles, visibly moving at warp 1 ----------

@@ -1,8 +1,8 @@
-# Sol System — N-Body Simulator
+# STARBLAZER · A Living Sol System
 
-A real-scale 3D solar system in the browser. Plain ES modules + Three.js (CDN import map), no build step.
+A real-scale 3D solar system in the browser, playable as the game STARBLAZER. Plain ES modules + Three.js (CDN import map), no build step.
 
-**Live:** https://sunsystem-auk.pages.dev
+**Live:** https://starblazer.pages.dev (the old https://sunsystem-auk.pages.dev redirects here)
 
 ## Deploy
 
@@ -10,7 +10,7 @@ Cloudflare Pages is the only deploy target (GitHub hosts source only; GitHub Pag
 
 ```bash
 rsync -a --delete --exclude '.git' --exclude 'models_src' --exclude '.wrangler' --exclude '.DS_Store' ./ /tmp/pages-deploy/
-npx wrangler pages deploy /tmp/pages-deploy --project-name sunsystem --branch main --commit-dirty=true
+npx wrangler pages deploy /tmp/pages-deploy --project-name starblazer --branch main --commit-dirty=true
 ```
 
 ## Run
