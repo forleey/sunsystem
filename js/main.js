@@ -1,17 +1,17 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=92';
-import { Sim, V3 } from './physics.js?v=92';
-import { SystemView } from './bodies3d.js?v=92';
-import { ShipView } from './ship3d.js?v=92';
-import { UI } from './ui.js?v=92';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=92';
-import { Fleet } from './fleet.js?v=92';
-import { Music, renderTest } from './music.js?v=92';
-import { initEnvironment } from './models.js?v=92';
-import { Combat } from './combat.js?v=92';
-import { Sfx } from './sfx.js?v=92';
-import { Editor } from './editor.js?v=92';
+import { createStage, makeSky } from './scene.js?v=93';
+import { Sim, V3 } from './physics.js?v=93';
+import { SystemView } from './bodies3d.js?v=93';
+import { ShipView } from './ship3d.js?v=93';
+import { UI } from './ui.js?v=93';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=93';
+import { Fleet } from './fleet.js?v=93';
+import { Music, renderTest } from './music.js?v=93';
+import { initEnvironment } from './models.js?v=93';
+import { Combat } from './combat.js?v=93';
+import { Sfx } from './sfx.js?v=93';
+import { Editor } from './editor.js?v=93';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -284,9 +284,12 @@ document.getElementById('b-music').addEventListener('click', () => {
   music.onTrackChange(music.title);
 });
 document.getElementById('b-nexttrack').addEventListener('click', () => music.next());
-// start softly on the very first interaction anywhere (autoplay policy)
+// the page tries to start music right on load (bottom of this file); browsers
+// that distrust the site keep the context suspended, so the very first
+// interaction anywhere resumes it (autoplay policy)
 const musicKickoff = () => {
   if (!music.ctx) music.start();
+  else if (music.enabled && music.ctx.state !== 'running') music.ctx.resume();
   window.removeEventListener('pointerdown', musicKickoff, true);
   window.removeEventListener('keydown', musicKickoff, true);
 };
@@ -534,4 +537,15 @@ console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);
 showTitle();
+// try to start the title theme immediately: browsers that trust the site
+// (media engagement / prior visits) allow it; otherwise the context stays
+// suspended until the first click/keypress (musicKickoff resumes it) and a
+// pulsing hint on the title screen says so.
+music.start();
+{
+  const hint = document.getElementById('sndHint');
+  const updHint = () => { hint.style.display = music.ctx && music.ctx.state !== 'running' ? '' : 'none'; };
+  if (music.ctx) music.ctx.addEventListener('statechange', updHint);
+  updHint();
+}
 requestAnimationFrame(frame);

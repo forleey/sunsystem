@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Sol System — N-Body Simulator</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=92">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=93">
 <meta name="theme-color" content="#02040a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -179,6 +179,10 @@
     box-shadow:0 0 24px rgba(255,179,92,.16);}
   #titleHint{margin-top:48px; color:#55697f; font-size:11px; letter-spacing:.14em;
     opacity:0; animation:fadeUp .9s ease 1.55s forwards;}
+  /* shown only while the browser blocks audio autoplay (pre-gesture) */
+  #sndHint{margin-top:10px; color:#7f96ad; font-size:11px; letter-spacing:.14em;
+    animation:sndPulse 2.2s ease-in-out infinite;}
+  @keyframes sndPulse{0%,100%{opacity:.35}50%{opacity:.95}}
 </style>
 </head>
 <body>
@@ -257,6 +261,7 @@
       <button class="mode battle" id="m-battle"><b>Battle Mode</b></button>
     </div>
     <p id="titleHint">Space thrust &nbsp;·&nbsp; hold LMB steer &nbsp;·&nbsp; Esc back to this screen &nbsp;·&nbsp; M music</p>
+    <p id="sndHint" style="display:none">&#9834; click anywhere for sound</p>
   </div>
 </div>
 
@@ -357,6 +362,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=92"></script>
+<script type="module" src="./js/main.js?v=93"></script>
 </body>
 </html>
