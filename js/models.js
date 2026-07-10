@@ -80,6 +80,13 @@ export function paintObject(root, spec) {
     n.material = Array.isArray(n.material) ? n.material.map(m => m.clone()) : n.material.clone();
     const mats = Array.isArray(n.material) ? n.material : [n.material];
     for (const m of mats) {
+      if (m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.2 && !m.map) {
+        // running lights / windows / engine glow: keep the light, honour Lights tweaks
+        if (spec.glow != null && 'emissiveIntensity' in m) m.emissiveIntensity *= spec.glow;
+        if (spec.glowColor != null && m.emissive) m.emissive.setHex(spec.glowColor);
+        m.userData._washed = true;
+        continue;
+      }
       if (spec.hull != null && m.color) m.color.setHex(spec.hull);
       if (spec.emissive != null && m.emissive) m.emissive.setHex(spec.emissive);
       if (spec.emissiveIntensity != null && 'emissiveIntensity' in m) m.emissiveIntensity = spec.emissiveIntensity;

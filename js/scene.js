@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SKY_V, SKY_F, logDepth } from './shaders.js?v=89';
+import { SKY_V, SKY_F, logDepth } from './shaders.js?v=90';
 
 export function toRender(v, out) { return out.set(v.x, v.z, -v.y); }
 

@@ -5,6 +5,9 @@
 const $ = id => document.getElementById(id);
 // sRGB hex (matches an <input type=color> and bakes straight into new THREE.Color(0xRRGGBB))
 const hex = c => '#' + c.getHexString();
+// a "glow" material is a window / running light / engine, driven by the Lights
+// section and kept out of the structural Hull controls
+const isGlow = m => !!(m.emissive && (m.emissive.r + m.emissive.g + m.emissive.b) > 0.12);
 
 export class Editor {
   constructor({ stage, system, fleet, shipView, sim, ui }) {
@@ -76,6 +79,22 @@ export class Editor {
       }
     });
     return out;
+  }
+
+  // Lights: brightness (a multiplier over each glow material's baked intensity,
+  // so relative window/light/engine ratios are preserved) + colour. Universal to
+  // every ship and station that has any emissive glow material.
+  _lightsControls(mats) {
+    const glow = mats.filter(m => isGlow(m) && 'emissiveIntensity' in m);
+    if (!glow.length) return;
+    for (const m of glow) if (m.userData._eiBase === undefined) m.userData._eiBase = m.emissiveIntensity ?? 1;
+    const g0 = glow[0];
+    this._sec('Lights · windows & glows');
+    this._slider('Lights brightness', 0, 4, 0.05,
+      () => (g0.emissiveIntensity ?? 0) / (g0.userData._eiBase || 1),
+      v => { for (const m of glow) m.emissiveIntensity = (m.userData._eiBase || 1) * v; });
+    this._color('Lights colour', () => hex(g0.emissive),
+      h => { for (const m of glow) if (m.emissive) m.emissive.set(h); });
   }
 
   // station-only controls: live greeble uniforms (window/panel detailing) + spin.
@@ -150,28 +169,34 @@ export class Editor {
         d.textContent = 'Model still loading, reopen in a moment.';
         this.body.appendChild(d);
       } else {
-        const rep = mats.find(m => m.color) || mats[0];
-        this._color('Hull colour (all)', () => rep.color ? hex(rep.color) : '#ffffff',
-          h => { for (const m of mats) if (m.color && !(m.emissive && m.emissive.r + m.emissive.g + m.emissive.b > 1.5)) m.color.set(h); });
-        this._color('Emissive (all)', () => rep.emissive ? hex(rep.emissive) : '#000000',
-          h => { for (const m of mats) if (m.emissive) m.emissive.set(h); });
+        // structural hull mats (glows are handled in the Lights section below).
+        // the player ship bakes bright self-illumination onto its hull, so its
+        // emissive is NOT "lights": treat all its mats as structural.
+        const struct = s.ship ? mats : mats.filter(m => !isGlow(m));
+        const rep = struct.find(m => m.color) || mats.find(m => m.color) || mats[0];
+        this._color('Hull colour', () => rep.color ? hex(rep.color) : '#ffffff',
+          h => { for (const m of struct) if (m.color) m.color.set(h); });
+        this._color('Hull emissive', () => rep.emissive ? hex(rep.emissive) : '#000000',
+          h => { for (const m of struct) if (m.emissive) m.emissive.set(h); });
         this._slider('Emissive intensity', 0, 6, 0.05, () => rep.emissiveIntensity ?? 1,
-          v => { for (const m of mats) if ('emissiveIntensity' in m) m.emissiveIntensity = v; });
+          v => { for (const m of struct) if ('emissiveIntensity' in m) m.emissiveIntensity = v; });
         this._slider('Metalness', 0, 1, 0.01, () => rep.metalness ?? 0,
           v => { for (const m of mats) if ('metalness' in m) m.metalness = v; });
         this._slider('Roughness', 0, 1, 0.01, () => rep.roughness ?? 1,
           v => { for (const m of mats) if ('roughness' in m) m.roughness = v; });
+        // Lights: windows, running lights, engine glows (NPC ships & stations).
+        // The player ship uses its own self-light & exhaust section instead.
+        if (!s.ship) this._lightsControls(mats);
         if (s.ship) {
           const sv = this.shipView;
-          this._sec('Starship · lights & exhaust');
+          this._sec('Starship · self-light & exhaust');
           this._slider('Ship-light glow', 0, 5, 0.05, () => sv.selfGlow, v => { sv.selfGlow = v; });
           this._slider('Fill light', 0, 2, 0.02, () => sv.selfLit.intensity, v => { sv.selfLit.intensity = v; });
           this._color('Fill light colour', () => hex(sv.selfLit.color), h => sv.selfLit.color.set(h));
           this._slider('Exhaust brightness', 0, 2.5, 0.02, () => sv.exhaustMul, v => { sv.exhaustMul = v; });
           this._color('Exhaust tint', () => hex(sv.exhaustColor), h => sv.exhaustColor.set(h));
-        } else {
-          this._stationControls(s, mats);
         }
+        this._stationControls(s, mats);
       }
     }
 
@@ -215,11 +240,20 @@ export class Editor {
         + (atmo ? ' atmosphere=' + hex(atmo.uniforms.uColor.value) : ''));
     } else if (s && s.type === 'mat') {
       const allMats = this._mats(s.root);
-      const rep = allMats.find(m => m.color);
-      if (rep) L.push(s.name + ' hull=' + hex(rep.color)
-        + ' emissive=' + (rep.emissive ? hex(rep.emissive) : 'n/a')
-        + ' emissiveIntensity=' + (rep.emissiveIntensity ?? 1).toFixed(2)
-        + ' metalness=' + (rep.metalness ?? 0).toFixed(2) + ' roughness=' + (rep.roughness ?? 1).toFixed(2));
+      const rep = allMats.find(m => m.color && !isGlow(m)) || allMats.find(m => m.color);
+      if (rep) {
+        let line = s.name + ' hull=' + hex(rep.color)
+          + ' emissive=' + (rep.emissive ? hex(rep.emissive) : 'n/a')
+          + ' emissiveIntensity=' + (rep.emissiveIntensity ?? 1).toFixed(2)
+          + ' metalness=' + (rep.metalness ?? 0).toFixed(2) + ' roughness=' + (rep.roughness ?? 1).toFixed(2);
+        const glow = s.ship ? [] : allMats.filter(m => isGlow(m) && 'emissiveIntensity' in m);
+        if (glow.length) {
+          const g0 = glow[0];
+          line += ' lights=' + ((g0.emissiveIntensity ?? 0) / (g0.userData._eiBase || 1)).toFixed(2);
+          if (glow.every(m => m.emissive.getHex() === g0.emissive.getHex())) line += ' lightsColour=' + hex(g0.emissive);
+        }
+        L.push(line);
+      }
       if (s.ship) {
         const sv = this.shipView;
         L.push('Starship shipGlow=' + sv.selfGlow.toFixed(2) + ' fillLight=' + sv.selfLit.intensity.toFixed(2)
