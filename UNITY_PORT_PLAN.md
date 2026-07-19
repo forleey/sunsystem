@@ -28,8 +28,10 @@
 
 These are decided now to prevent churn. Change only with explicit owner sign-off.
 
-1. **Unity 6 LTS** (6000.0.x latest LTS patch) with **URP** (Universal Render Pipeline).
-   Rationale: current LTS, mobile-first pipeline, long support window.
+1. **Unity 6** with **URP** (Universal Render Pipeline). Installed and locked:
+   **6000.5.4f1** (the Hub's current Unity 6 stream; newer than the 6000.0 LTS originally
+   named here, everything required is included). Version upgrades only at milestone
+   boundaries. Rationale: mobile-first pipeline, long support window.
 2. **C# everywhere; physics in double precision.** The simulation ports 1:1 from the web
    architecture: ecliptic frame in **km, C# doubles** (JS numbers are doubles, so the numerics
    match exactly), render positions computed **relative to the focused object** (floating
