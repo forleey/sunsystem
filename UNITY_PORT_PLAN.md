@@ -92,8 +92,17 @@ These are decided now to prevent churn. Change only with explicit owner sign-off
   (same freeze-frame idea as the web workflow); I inspect the PNGs.
 - Unity Test Framework (EditMode/PlayMode) for physics/regression tests (e.g. Kepler
   propagation vs analytic values, station rail positions, impulse limiter ratio).
-- Evaluate a community **Unity-MCP bridge** in Phase 0 for live editor control; adopt only
-  if it proves more reliable than batchmode round-trips.
+- Adopt the **official Unity MCP Server** (Unity AI Suite, `com.unity.ai.assistant` package,
+  Unity 6+; Claude Code is a first-class client via the `~/.unity/relay` binary) as the live
+  editor channel, evaluated in Phase 0: scene/GameObject/asset/script tools + console reading,
+  and CUSTOM tools via `McpToolRegistry` (the screenshot rig and acceptance checks get
+  registered as MCP tools, so verification runs in seconds against the live editor instead of
+  batchmode round-trips). Caveats: package is pre-release, first editor instance only,
+  one-time connection approval. Fallback if flaky: batchmode-only (community CoplayDev
+  bridge as second fallback). Batchmode remains the deterministic backbone for builds/CI
+  regardless. Unity's Agentic Assistant and AI Gateway stay OFF during the port (one
+  authoritative agent + code-first discipline; the in-editor assistant would mutate editor
+  state outside git).
 - Occasional GUI inspection via computer use where logs/PNGs are insufficient.
 
 **Cadence**: same as the web project: small iterations, each ending in a verifiable state
