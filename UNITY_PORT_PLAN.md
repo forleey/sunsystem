@@ -138,75 +138,83 @@ phase gates, TestFlight from Phase 7.
 
 ---
 
-## 5. Phase plan
+## 5. Milestone plan (MVP-first)
+
+**Guiding principle: playable first.** The plan is ordered as a vertical slice: the shortest
+path to holding an iPhone and PLAYING (steer, shoot, explode, respawn), then deepen in
+iterations. Shortcuts are allowed in CONTENT (one planet, simple AI, placeholder audio),
+never in ARCHITECTURE: the doubles/km simulation core, code-first discipline and the
+FocusSystem abstraction exist from day one (initially trivial: focus fixed on Earth), so
+nothing built for the MVP gets thrown away later.
 
 Estimates are working iterations (one iteration = one focused session ending verified+committed).
 
-### Phase 0 – Bootstrap & device spike (GO/NO-GO gate) · ~2-3 iterations
-Tasks:
-1. KoL setup steps 1-3 (§3). I scaffold the repo, ProjectSettings (ForceText), manifest,
-   Bootstrap scene, batchmode build pipeline, screenshot rig, first PlayMode test.
-2. Vertical slice: floating-origin camera + one procedural planet (rock shader ported) +
-   sun light + skybox stub + a placeholder ship cube with touch-steer + thrust.
-3. iOS device build on KoL's iPhone (free provisioning). Measure: FPS, thermal after 10 min,
-   build size.
-Exit criteria (GO): 60 fps on device for the slice, no thermal throttling within 10 min,
-batchmode pipeline + screenshot verification loop proven end-to-end.
-NO-GO fallback: revisit Godot decision with the same spike learnings.
+### M0 – Setup & pipeline · ~1-2 iterations
+KoL setup steps 1-3 (§3). I scaffold repo/ProjectSettings (ForceText)/manifest/Bootstrap,
+prove the loop headless: batchmode build + official Unity MCP server + screenshot rig +
+first PlayMode test, and an empty build reaches the iPhone (free provisioning).
+Exit: code change -> device build -> scripted screenshot, all without GUI authoring.
 
-### Phase 1 – Solar system core · ~4-5 iterations
-Port per SPEC §4/§5: constants + planet table, velocity-Verlet N-body (doubles), time warp,
-Kepler f&g for the unpowered ship, planet ShaderMaterial equivalents for all six types
-(HLSL), atmosphere shells, Saturn rings, procedural sky + Milky Way, Andromeda on the far
-layer, orbit trails, focus system + camera orbit controls, planet-size multiplier.
-Tests: energy drift bound on N-body; Kepler propagation vs closed-form ellipse; warp
-invariance of rails. Screenshots: each planet type, Earth close-up, Saturn rings.
+### M1 – PLAYABLE CORE: "dogfight over Earth" · ~3-4 iterations  <-- the milestone
+The minimal game, on the device:
+- Space scene: simple procedural starfield skybox, sun light, Earth as textured sphere
+  (2k maps + basic atmosphere rim; the full six-type shader port comes in M3).
+- Ship: Valkyrie GLB + playerPaint, chase cam with lag, **touch helm v1** (left steering pad
+  = nose rate control, right hold-to-thrust) + desktop keyboard/mouse scheme.
+- Combat mini-loop: one repeating wave of 3 raiders (chase + jink + laser AI), player laser
+  with cone/range gate, simplified explosion (flipbook fireball + flash + light pulse),
+  HP/kills HUD chip, death -> respawn.
+- Fixed arena: Earth-centred frame (origin = Earth, units = km; at <= ~50,000 km float
+  precision is fine, so floating origin stays a no-op until M3). No N-body/warp yet.
+- 3 placeholder SFX one-shots (laser, boom, hit).
+Exit (absorbs the old GO/NO-GO, now measured on real gameplay): playable on KoL's iPhone at
+60 fps (or stable 30 with a named headroom plan), no thermal throttling in 10 min,
+owner fun-check passed. NO-GO fallback: revisit Godot with the same learnings.
 
-### Phase 2 – Player ship & helm · ~3-4 iterations
-Valkyrie GLB via glTFast + playerPaint port; chase cam with lag + zoom/elevation;
-helm inertia model (exact constants SPEC §6.3); **touch controls v1**: left virtual
-steering pad = nose rate control (maps to the same quaternion path as mouse steer),
-right side: hold-to-thrust button, X/brake, fire buttons (combat later), pinch = camera
-distance; desktop keyboard/mouse scheme incl. pointer lock; exhaust visuals (glow sprites,
-puff trail, self-light); arrival fly-in; boot attitude; engine SFX stub (envelope only).
-Tests: 10 s to max-speed rule; brake-to-local-rest; touch-vs-keyboard parity on turn rates.
+### M2 – Complete game loop · ~2-3 iterations
+Title screen (simple version: wordmark + Free/Battle buttons), wave scaling, torpedoes +
+target lock + cycle, radar with hull arc, damage/invuln/death-hold sequence + beam-out,
+impulse limiter (0.2), **full explosion kit** with the exact SPEC §9.6 parameters, full SFX
+inventory, engine bed with hold envelope, toasts.
+Exit: title -> battle -> waves -> death -> title cycles cleanly on device; SPEC §17 points
+5-6 pass (adapted for touch). Tests: limiter ratio == 0.2; wave scaling; explosion pool
+leak check (1000 booms).
 
-### Phase 3 – Fleet & stations · ~3-4 iterations
-Rails system (orbiter/patrol/lane, analytic velocities incl. parent motion), full station
-catalog + ships per SPEC §7.2/7.3, procedural station meshes ported, greeble HLSL injection
-(URP shader include with the same uniforms; toroidal ring windows), STATION_LOOK/whitewash/
-paint pipeline with the glow-guard + uuid-dedupe semantics, K-7 megastation port
-(instanced greeble carpet, baked window canvas as Texture2D), labels + beam-to.
-Screenshots: every station vs its web counterpart side by side.
+### M3 – The living solar system · ~4-5 iterations
+The simulation becomes real per SPEC §4/§5: velocity-Verlet N-body (doubles) + planet table,
+Kepler f&g for the unpowered ship, time warp, **floating origin activated** (FocusSystem
+becomes real; reversed-Z + FarLayerPlacer for Andromeda), all six planet shader types +
+atmospheres + Saturn rings + sky/Milky Way ported (HLSL), Free Mode UX: focus/orbit camera,
+beaming, J/H autopilots, panels/sliders, orbit trails, planet-size multiplier.
+Exit: SPEC §17 points 2-3. Tests: N-body energy drift bound; Kepler vs closed-form ellipse;
+warp invariance; 10 s to max-speed rule; brake-to-local-rest.
 
-### Phase 4 – Game shell · ~2 iterations
-Title screen (logo as vector-ish UI or pre-rendered from the SVG, mode buttons, hints),
-HUD single row + autopilot bar + toasts, fold panels with the slider set + persistence,
-Esc/back flow, Andromeda jump + home autopilot UX.
+### M4 – Fleet & world · ~3-4 iterations
+Rails (orbiter/patrol/lane, analytic velocities incl. parent motion), full station catalog +
+procedural builders, greeble HLSL injection (same uniforms; toroidal ring windows),
+STATION_LOOK/whitewash/paint pipeline (glow-guard + uuid-dedupe semantics), K-7 megastation
+(instanced greeble carpet, baked window canvas as Texture2D), lanes/patrols/shuttles,
+labels + beam-to.
+Exit: SPEC §17 point 4; side-by-side screenshots vs the web build per station.
 
-### Phase 5 – Battle mode · ~3-4 iterations
-Combat agents (waves, jink AI, cadences), lasers (hitscan + cone/range gate + dry-fire
-beams + camera-proximity fade), homing torpedoes, target lock + cycle, radar (nose-up,
-hull arc) as UI Toolkit painter, damage/invuln/death-hold sequence, **explosion kit port**
-(C#-baked flipbook atlas, flash, pooled light, ring, embers w/ drag, normal-blended smoke,
-debris) with the exact SPEC §9.6 parameters, impulse limiter (0.2), combat HUD extras,
-touch fire buttons.
-Tests: limiter ratio == 0.2; wave scaling; explosion pool leak check (1000 booms).
+### M5 – Audio & look polish · ~2-3 iterations
+C# synth voices + master bus/reverb playing `tracks.json`; combat threat crossfade + title
+layer + ducking; FilmLook renderer feature (grain/vignette/CA/grade parity); exhaust visuals
+final (glow sprites, puff trail, self-light); arrival fly-in; boot attitude; title logo
+final. Device check: DSP CPU cost; if music > ~5% CPU, switch music (not SFX) to
+offline-rendered OGG loops.
+Exit: SPEC §17 point 1 passes; grade screenshots match the web reference.
 
-### Phase 6 – Audio · ~2-3 iterations
-C# synth voices (drone/pad/bass/bell/perc/brass) + master bus/reverb; `tracks.json` playback;
-combat threat crossfade + title layer + ducking; full SFX inventory port; engine bed with
-hold envelope. Device check: DSP CPU cost on iPhone; if > ~5% CPU, switch music (not SFX)
-to offline-rendered OGG loops.
-
-### Phase 7 – iOS hardening & App Store · ~3-4 iterations + review latency
+### M6 – iOS hardening & App Store · ~3-4 iterations + review latency
 Performance/thermal pass (quality tiers, resolution scaling, 30/60 fps option), safe-area
 UI, app icon + launch screen, haptics on hits (nice-to-have), privacy manifest (no data
-collection), TestFlight beta, App Store Connect metadata/screenshots, submission.
-Desktop bonus builds: macOS notarized .app + Windows .exe from the same code (1 iteration).
+collection), credits screen (CC-BY duties), TestFlight beta, App Store Connect
+metadata/screenshots, submission. Desktop bonus builds: macOS notarized .app +
+Windows .exe from the same code (1 iteration).
 
-**Total: roughly 20-27 iterations** to App-Store-ready, front-loaded so a playable
-solar-system build exists after Phase 2.
+**Totals: still ~19-25 iterations to App-Store-ready, but PLAYABLE after ~4-6 iterations
+(M0+M1)** instead of double that in the old system-by-system ordering. Every milestone ends
+with a build KoL can hold and judge; feedback reprioritizes the next milestone's content.
 
 ---
 
@@ -246,6 +254,9 @@ solar-system build exists after Phase 2.
    metadata/screenshots. Model licenses (CC-BY credits) must appear in-app (§6 map, credits).
 7. **AI workflow erosion** (binary assets creeping in): the code-first rule (§2.10) is the
    guardrail; any PR/iteration that adds authored scene state gets rejected/redone as code.
+8. **MVP shortcuts calcifying into architecture debt**: the §5 rule is binding, shortcuts in
+   content only. Doubles sim, km units, FocusSystem and code-first exist from M0; a shortcut
+   that would violate one of the locked decisions (§2) needs explicit owner sign-off first.
 
 ---
 
@@ -270,5 +281,6 @@ solar-system build exists after Phase 2.
 
 **Me (immediately after):**
 1. Scaffold `~/dev/starblazer-unity` (repo, settings, manifest, Bootstrap, batch pipeline).
-2. Prove the loop: batchmode build -> PlayMode test -> scripted screenshot, all headless.
-3. Build the Phase 0 vertical slice and hand over the first on-device test build.
+2. Prove the loop (M0): batchmode build -> MCP tools -> PlayMode test -> scripted screenshot.
+3. Build M1, the playable core ("dogfight over Earth"), and hand over the on-device build
+   for the fun-check + GO/NO-GO measurement.
