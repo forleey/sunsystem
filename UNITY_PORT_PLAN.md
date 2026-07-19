@@ -189,13 +189,29 @@ beaming, J/H autopilots, panels/sliders, orbit trails, planet-size multiplier.
 Exit: SPEC §17 points 2-3. Tests: N-body energy drift bound; Kepler vs closed-form ellipse;
 warp invariance; 10 s to max-speed rule; brake-to-local-rest.
 
-### M4 – Fleet & world · ~3-4 iterations
-Rails (orbiter/patrol/lane, analytic velocities incl. parent motion), full station catalog +
-procedural builders, greeble HLSL injection (same uniforms; toroidal ring windows),
+### M4 – Fleet & world · ~4-5 iterations
+Rails (orbiter/patrol/lane, analytic velocities incl. parent motion), full station catalog,
 STATION_LOOK/whitewash/paint pipeline (glow-guard + uuid-dedupe semantics), K-7 megastation
 (instanced greeble carpet, baked window canvas as Texture2D), lanes/patrols/shuttles,
 labels + beam-to.
-Exit: SPEC §17 point 4; side-by-side screenshots vs the web build per station.
+
+**Station visual upgrade (the Unity dividend).** The web stations are primitive-built by
+necessity; the port upgrades them instead of copying them 1:1:
+- **Procedural assembly of quality parts**: seeded, code-first placement (same architecture
+  as today) of modular kitbash pieces: docking modules, truss segments, tanks, antennae,
+  radiators. Source: CC0/Asset-Store sci-fi kits and/or own parts generated via headless
+  Blender (bpy) with real UVs, bevels and baked normal maps.
+- **Trim-sheet PBR materials + URP Decal Projectors** (markings, numbering, warning stripes,
+  grime) so hulls read as engineered, not extruded.
+- **Reflection/light probes** so metal hulls mirror the nearby planet; nav-light VFX and
+  docking traffic as cheap life.
+- **LOD strategy for iOS**: kit detail near, the ported greeble shader as the far-LOD skin,
+  LOD Groups + instancing + texture streaming to stay inside the thermal budget.
+- The station SILHOUETTES and the baked identity (STATION_LOOK colours/lights) stay
+  recognizable per SPEC; licenses of any purchased kits must allow App Store shipping and
+  land in the credits screen.
+Exit: SPEC §17 point 4 for logic/identity, PLUS side-by-side screenshots showing each station
+clearly upgraded over its web counterpart at equal or better frame cost.
 
 ### M5 – Audio & look polish · ~2-3 iterations
 C# synth voices + master bus/reverb playing `tracks.json`; combat threat crossfade + title
@@ -212,7 +228,7 @@ collection), credits screen (CC-BY duties), TestFlight beta, App Store Connect
 metadata/screenshots, submission. Desktop bonus builds: macOS notarized .app +
 Windows .exe from the same code (1 iteration).
 
-**Totals: still ~19-25 iterations to App-Store-ready, but PLAYABLE after ~4-6 iterations
+**Totals: still ~20-26 iterations to App-Store-ready, but PLAYABLE after ~4-6 iterations
 (M0+M1)** instead of double that in the old system-by-system ordering. Every milestone ends
 with a build KoL can hold and judge; feedback reprioritizes the next milestone's content.
 
