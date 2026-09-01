@@ -7,7 +7,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
-import { SKY_V, SKY_F, logDepth } from './shaders.js?v=98';
+import { SKY_V, SKY_F, logDepth } from './shaders.js?v=100';
 
 export function toRender(v, out) { return out.set(v.x, v.z, -v.y); }
 
@@ -111,8 +111,11 @@ export function createStage(container) {
   }
   setSize();
   window.addEventListener('resize', setSize);
+  // the start screen sits behind a 30-92% dark overlay, so the scene there can
+  // render at 1x and save 4x the pixels through all five full-screen passes
+  function setPixelRatio(pr) { renderer.setPixelRatio(pr); setSize(); }
 
-  return { renderer, scene, camera, composer, bloom, film };
+  return { renderer, scene, camera, composer, bloom, film, setPixelRatio };
 }
 
 export function makeSky(scene) {

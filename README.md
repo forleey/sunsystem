@@ -18,7 +18,7 @@ npx wrangler pages deploy /tmp/pages-deploy --project-name starblazer --branch m
 Any static file server, e.g.:
 
 ```bash
-cd ~/dev/sunsystem
+cd ~/Developer/personal/games/starblazer-web
 python3 -m http.server 8643
 # open http://localhost:8643
 ```

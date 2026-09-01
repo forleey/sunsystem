@@ -1,17 +1,18 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=98';
-import { Sim, V3 } from './physics.js?v=98';
-import { SystemView } from './bodies3d.js?v=98';
-import { ShipView } from './ship3d.js?v=98';
-import { UI } from './ui.js?v=98';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=98';
-import { Fleet } from './fleet.js?v=98';
-import { Music, renderTest } from './music.js?v=98';
-import { initEnvironment } from './models.js?v=98';
-import { Combat } from './combat.js?v=98';
-import { Sfx } from './sfx.js?v=98';
-import { Editor } from './editor.js?v=98';
+import { createStage, makeSky } from './scene.js?v=100';
+import { Sim, V3 } from './physics.js?v=100';
+import { SystemView } from './bodies3d.js?v=100';
+import { ShipView } from './ship3d.js?v=100';
+import { UI } from './ui.js?v=100';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=100';
+import { Fleet } from './fleet.js?v=100';
+import { Music, renderTest } from './music.js?v=100';
+import { armShine } from './shine.js?v=100';
+import { initEnvironment } from './models.js?v=100';
+import { Combat } from './combat.js?v=100';
+import { Sfx } from './sfx.js?v=100';
+import { Editor } from './editor.js?v=100';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -252,7 +253,7 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyJ') startAndromedaJump();
   if (e.code === 'KeyH') startHomeJump();
   if (e.code === 'KeyF') applyFocus('Starship');
-  if (e.code === 'KeyM') { music.toggle(); music.onTrackChange(music.title); }
+  if (e.code === 'KeyM') setMusic(!musicWanted());
   if (e.code === 'KeyR') combat.cycleTarget();
   if (e.code === 'KeyT') combat.firePlayerTorpedo();
   if (e.code === 'KeyX') {
@@ -275,23 +276,48 @@ window.addEventListener('keyup', e => keys.delete(e.code));
 window.addEventListener('blur', () => keys.clear());   // no stuck thrust when the tab loses focus
 
 // ---------- ambient music (tracks composed via OpenRouter, synthesized live) ----------
+// The wish for music is a stored preference, not the live context state: when a
+// browser blocks autoplay the wish is still "on" while nothing sounds yet, and
+// the start screen says so with #sndHint instead of lying about the setting.
+const MUSIC_KEY = 'starblazer.music';
+const musicWanted = () => localStorage.getItem(MUSIC_KEY) !== 'off';
 const music = new Music(title => {
   document.getElementById('v-track').textContent = music.enabled ? title : 'off';
   document.getElementById('b-music').innerHTML = music.enabled ? '&#9834; Pause' : '&#9834; Play';
+  const t = document.getElementById('m-music');
+  t.classList.toggle('off', !musicWanted());
+  t.innerHTML = musicWanted() ? '&#9834; Music On' : '&#9834; Music Off';
+  updSndHint();
 });
-document.getElementById('b-music').addEventListener('click', () => {
-  music.toggle();
+function setMusic(on) {
+  localStorage.setItem(MUSIC_KEY, on ? 'on' : 'off');
+  if (on) { music.start(); watchCtx(); }
+  else if (music.ctx) { music.ctx.suspend(); music.enabled = false; }
   music.onTrackChange(music.title);
-});
+}
+let ctxWatched = false;
+function watchCtx() {   // the context is born on the first start(), whenever that is
+  if (ctxWatched || !music.ctx) return;
+  music.ctx.addEventListener('statechange', updSndHint);
+  ctxWatched = true;
+}
+function updSndHint() {   // pulsing "click for sound" only while the wish is blocked
+  const hint = document.getElementById('sndHint');
+  hint.style.display = musicWanted() && music.ctx && music.ctx.state !== 'running' ? '' : 'none';
+}
+document.getElementById('m-music').addEventListener('click', () => setMusic(!musicWanted()));
+document.getElementById('b-music').addEventListener('click', () => setMusic(!music.enabled));
 document.getElementById('b-nexttrack').addEventListener('click', () => music.next());
 // the page tries to start music right on load (bottom of this file); browsers
 // that distrust the site keep the context suspended, so the very first
 // interaction anywhere resumes it (autoplay policy)
 const musicKickoff = () => {
-  if (!music.ctx) music.start();
-  else if (music.enabled && music.ctx.state !== 'running') music.ctx.resume();
   window.removeEventListener('pointerdown', musicKickoff, true);
   window.removeEventListener('keydown', musicKickoff, true);
+  if (!musicWanted()) return;
+  if (!music.ctx) { music.start(); watchCtx(); }
+  else if (music.enabled && music.ctx.state !== 'running') music.ctx.resume();
+  updSndHint();
 };
 window.addEventListener('pointerdown', musicKickoff, true);
 window.addEventListener('keydown', musicKickoff, true);
@@ -317,10 +343,12 @@ function showTitle() {
   document.body.classList.add('title');
   if (combat.enabled) combat.setEnabled(false);
   music.setTitleActive(true);
+  stage.setPixelRatio(1);
 }
 function startGame(mode) {
   document.body.classList.remove('title');
   music.setTitleActive(false);
+  stage.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   sim.resetShip();
   bootAttitude();
   applyFocus('Starship', false);
@@ -454,14 +482,20 @@ function frameBody(now) {
 
   stage.bloom.strength = ui.state.bloom;
   stage.film.material.uniforms.uTime.value = (now * 0.001) % 100;
-  ui.updateLabels(fPos, stage.camera, focusName);
-  ui.updateHUD(hudExtra());
-  combat.hud(stage.camera, fPos);
+  // the start screen hides labels, HUD and reticle via CSS; skip writing them
+  // there. Every write is a DOM mutation (textContent = childList), ~19 per
+  // frame, and each one wakes Heddle's design bridge observer.
+  const onTitle = document.body.classList.contains('title');
+  if (!onTitle) {
+    ui.updateLabels(fPos, stage.camera, focusName);
+    ui.updateHUD(hudExtra());
+    combat.hud(stage.camera, fPos);
+  }
 
   stage.composer.render();
 
   // flight reticle: project the nose direction onto the screen (ship view only)
-  if (focusName === 'Starship') {
+  if (focusName === 'Starship' && !onTitle) {
     retV.set(0, 0, -1).applyQuaternion(shipView.quat).multiplyScalar(1e7).add(shipView.grp.position);
     retV.project(stage.camera);
     if (retV.z < 1) {
@@ -539,15 +573,12 @@ console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);
 showTitle();
+armShine(document.getElementById('shine'));
 // try to start the title theme immediately: browsers that trust the site
 // (media engagement / prior visits) allow it; otherwise the context stays
 // suspended until the first click/keypress (musicKickoff resumes it) and a
 // pulsing hint on the title screen says so.
-music.start();
-{
-  const hint = document.getElementById('sndHint');
-  const updHint = () => { hint.style.display = music.ctx && music.ctx.state !== 'running' ? '' : 'none'; };
-  if (music.ctx) music.ctx.addEventListener('statechange', updHint);
-  updHint();
-}
+if (musicWanted()) music.start();
+music.onTrackChange(music.title);
+watchCtx();
 requestAnimationFrame(frame);

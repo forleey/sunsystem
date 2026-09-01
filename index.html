@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>STARBLAZER · A Living Sol System</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=98">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=100">
 <meta name="theme-color" content="#02040a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -152,13 +152,29 @@
   body:not(.title) #title{display:none;}
   body.title :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#toast){display:none !important;}
   #titleInner{text-align:center; transform:translateY(-4vh); padding:0 20px;}
-  /* game logo: elaborate inline-SVG chrome wordmark (markup in #title) */
-  #logo{display:block; width:clamp(400px, 84vw, 1000px); height:auto; margin:0 auto;
-    animation:logoIn 1s cubic-bezier(.16,.9,.24,1) both, logoGlow 4.6s ease-in-out 1.7s infinite;}
+  /* game logo: elaborate inline-SVG chrome wordmark (markup in #title).
+     No CSS filter on the SVG: WebKit renders filters on inline SVG in software,
+     and animating one re-blurred the whole 2000px wordmark every frame (11 fps
+     on the start screen, 02.09.2026). The pulse is a gradient layer behind it
+     that only animates opacity, which stays on the compositor. */
+  #logoWrap{position:relative; width:clamp(400px, 84vw, 1000px); margin:0 auto;
+    animation:logoIn 1s cubic-bezier(.16,.9,.24,1) both;}
+  #logoWrap::before{content:""; position:absolute; inset:-12% -6%; z-index:0; pointer-events:none;
+    background:radial-gradient(ellipse at 50% 55%, rgba(106,209,255,.34) 0%, rgba(106,209,255,.10) 42%, rgba(106,209,255,0) 70%);
+    opacity:.35; animation:logoGlow 4.6s ease-in-out 1.7s infinite;}
+  #logo{position:relative; z-index:1; display:block; width:100%; height:auto;}
+  /* the sweep: a masked HTML layer over the SVG (mask set by js/shine.js), the
+     band inside moves by transform only. Same path as the old SMIL rect:
+     360 of 1200 units wide, from x=-460 to x=1200 in 4.6 s, then a 3.2 s rest. */
+  #shine{position:absolute; inset:0; z-index:2; pointer-events:none; overflow:hidden; display:none;
+    -webkit-mask-size:100% 100%; mask-size:100% 100%; -webkit-mask-repeat:no-repeat; mask-repeat:no-repeat;}
+  #shine.ready{display:block;}
+  #shine i{position:absolute; top:0; bottom:0; left:0; width:30%; will-change:transform;
+    background:linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0) 46%, rgba(255,255,255,.95) 50%, rgba(255,255,255,0) 54%, rgba(255,255,255,0) 100%);
+    transform:translateX(-128%); animation:shineSweep 7.8s linear 1.5s infinite;}
+  @keyframes shineSweep{ 0%{transform:translateX(-128%)} 59%{transform:translateX(333%)} 100%{transform:translateX(333%)} }
   @keyframes logoIn{ from{opacity:0; transform:translateY(18px) scale(.93);} to{opacity:1; transform:none;} }
-  @keyframes logoGlow{
-    0%,100%{filter:drop-shadow(0 5px 12px rgba(0,0,0,.75)) drop-shadow(0 0 15px rgba(106,209,255,.16));}
-    50%{filter:drop-shadow(0 5px 12px rgba(0,0,0,.75)) drop-shadow(0 0 34px rgba(106,209,255,.5));}}
+  @keyframes logoGlow{ 0%,100%{opacity:.35} 50%{opacity:1} }
   #tagline{font-family:'Orbitron','SF Mono',ui-monospace,monospace; font-weight:500;
     color:var(--dim); letter-spacing:.52em; margin-right:-.52em; text-transform:uppercase;
     font-size:clamp(10px, 1.1vw, 13px); margin-top:14px; margin-bottom:56px;
@@ -177,13 +193,25 @@
   .mode.battle b{color:var(--acc2);}
   .mode.battle:hover{border-color:var(--acc2); background:rgba(255,179,92,.10);
     box-shadow:0 0 24px rgba(255,179,92,.16);}
-  #titleHint{margin-top:48px; color:#55697f; font-size:11px; letter-spacing:.14em;
+  /* quiet options row under the mode select: music off, remembered per browser */
+  #titleOpts{display:flex; gap:10px; justify-content:center; margin-top:26px;
+    opacity:0; animation:fadeUp .9s ease 1.4s forwards;}
+  .titleopt{flex:0 0 auto; font-family:'Orbitron','SF Mono',ui-monospace,monospace; font-weight:500;
+    font-size:10px; letter-spacing:.2em; margin-right:-.2em; text-transform:uppercase;
+    color:var(--acc); padding:8px 17px; border-radius:999px; cursor:pointer;
+    background:rgba(106,209,255,.07); border:1px solid var(--line);
+    transition:color .18s ease, border-color .18s ease, background .18s ease;}
+  .titleopt:hover{border-color:var(--acc); background:rgba(106,209,255,.13);}
+  .titleopt.off{color:#55697f; background:transparent;}
+  .titleopt.off:hover{color:#8ba3ba; border-color:#33455c; background:rgba(255,255,255,.04);}
+  #titleHint{margin-top:36px; color:#55697f; font-size:11px; letter-spacing:.14em;
     opacity:0; animation:fadeUp .9s ease 1.55s forwards;}
   /* shown only while the browser blocks audio autoplay (pre-gesture) */
   #sndHint{margin-top:10px; color:#7f96ad; font-size:11px; letter-spacing:.14em;
     animation:sndPulse 2.2s ease-in-out infinite;}
   @keyframes sndPulse{0%,100%{opacity:.35}50%{opacity:.95}}
 </style>
+<script>/* heddle-design, dev only */if(["localhost","127.0.0.1"].includes(location.hostname)){var h=document.createElement("script");h.src="http://127.0.0.1:1443/heddle-design.js";document.head.appendChild(h)}</script>
 </head>
 <body>
 <div id="app"></div>
@@ -202,6 +230,7 @@
 
 <div id="title">
   <div id="titleInner">
+    <div id="logoWrap">
     <svg id="logo" viewBox="0 0 1200 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Starblazer">
       <defs>
         <style>.wm{font-family:'Orbitron','SF Mono',sans-serif; font-weight:900; font-size:132px; letter-spacing:4px;}</style>
@@ -219,11 +248,6 @@
         <linearGradient id="lgStreak" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stop-color="#6ad1ff" stop-opacity="0"/><stop offset=".5" stop-color="#8fe0ff" stop-opacity=".9"/>
           <stop offset="1" stop-color="#6ad1ff" stop-opacity="0"/>
-        </linearGradient>
-        <linearGradient id="lgShine" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset=".46" stop-color="#fff" stop-opacity="0"/>
-          <stop offset=".5" stop-color="#fff" stop-opacity=".95"/><stop offset=".54" stop-color="#fff" stop-opacity="0"/>
-          <stop offset="1" stop-color="#fff" stop-opacity="0"/>
         </linearGradient>
         <text id="lgWm" class="wm" x="600" y="184" text-anchor="middle">STARBLAZER</text>
         <clipPath id="lgClip"><use href="#lgWm"/></clipPath>
@@ -243,22 +267,21 @@
         <use href="#lgWm" fill="url(#lgChrome)"/>
         <!-- top spec highlight, clipped to the glyphs -->
         <g clip-path="url(#lgClip)"><rect x="0" y="54" width="1200" height="66" fill="url(#lgHi)" opacity=".55"/></g>
-        <!-- sweeping shine, clipped to the glyphs -->
-        <g clip-path="url(#lgClip)">
-          <rect x="-460" y="44" width="360" height="184" fill="url(#lgShine)">
-            <animate id="lgShn" attributeName="x" values="-460;1200" dur="4.6s" begin="1.5s;lgShn.end+3.2s" fill="freeze"/>
-          </rect>
-        </g>
         <!-- sparkles -->
         <path d="M1030,66 l2.4,7 7,2.4 -7,2.4 -2.4,7 -2.4,-7 -7,-2.4 7,-2.4 Z" fill="#eaf7ff"/>
         <path d="M1088,44 l1.7,5 5,1.7 -5,1.7 -1.7,5 -1.7,-5 -5,-1.7 5,-1.7 Z" fill="#cdeeff"/>
         <path d="M150,64 l1.5,4.4 4.4,1.5 -4.4,1.5 -1.5,4.4 -1.5,-4.4 -4.4,-1.5 4.4,-1.5 Z" fill="#dff2ff"/>
       </g>
     </svg>
+    <div id="shine" aria-hidden="true"><i></i></div>
+    </div>
     <p id="tagline">A living Sol system</p>
     <div id="modes">
       <button class="mode" id="m-free"><b>Free Mode</b></button>
       <button class="mode battle" id="m-battle"><b>Battle Mode</b></button>
+    </div>
+    <div id="titleOpts">
+      <button class="titleopt" id="m-music">&#9834; Music On</button>
     </div>
     <p id="titleHint">Space thrust &nbsp;·&nbsp; hold LMB steer &nbsp;·&nbsp; Esc back to this screen &nbsp;·&nbsp; M music</p>
     <p id="sndHint" style="display:none">&#9834; click anywhere for sound</p>
@@ -362,6 +385,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=98"></script>
+<script type="module" src="./js/main.js?v=100"></script>
 </body>
 </html>
