@@ -5,8 +5,11 @@
 // THREE FRAMES, and the only three that exist:
 //
 //   hull frame     hull-centred metres, nose +Z, up +Y, starboard +X.
-//                  This is the frame of SPEC.md sections 5 and 7 and the
-//                  frame every table below is written in.
+//                  This is the frame of the interior design spec
+//                  (docs/superpowers/specs/2026-09-02-ship-interior-design.md,
+//                  sections 5 and 7) and the frame every table below is
+//                  written in. SPEC.md at the root is the Unity contract, not
+//                  this one.
 //   interior frame metres, same origin (the hull centre), axes rotated onto
 //                  the render axes: (x, y, z)_int = (-x, y, -z)_hull.
 //                  js/models.js normalises player.glb with yaw = PI, so the
@@ -80,36 +83,32 @@ export function envelopeAt(z) {
   return best || { region: null, halfWidth: 0, topY: 0, bottomY: 0 };
 }
 
-// ---------- rooms (SPEC section 7.2), hull frame, metres ----------
-// Two readings of the spec had to be settled and are recorded here:
-//
-// 1. The hold is listed as 12 x 12 x 4.2 while the deck ceiling is given as
-//    +3.0. Floor -1.5 and ceiling +2.7 keeps the stated 4.2 m height, so the
-//    hold ceiling is +2.7 and the cupola well starts there, not at +3.0. The
-//    well is therefore 7.4 - 2.7 = 4.7 m tall, where the spec's "4.4" was
-//    measured from +3.0. WELL below carries bottomY/topY, never a height.
-// 2. The airlock is listed at "Z -10, X -12" with a 3 m width. Read as a
-//    centre that would put its outboard wall at X -13.5, one and a half
-//    metres outside the mid-body envelope (half width 12). Read instead as
-//    the OUTBOARD WALL: the box spans X -12 to -9, flush with the outer wall
-//    of the ring corridor, centre X -10.5.
+// ---------- rooms (spec section 7.2), hull frame, metres ----------
+// Deck floor -1.5, deck ceiling +3.0 (spec section 5): the hold is 4.5 m clear
+// and the well rises from +3.0 to the skin at +7.4 (4.4 m). WELL below carries
+// bottomY/topY, never a height.
+// The airlock's "X -12" is its OUTBOARD WALL: read as a centre, the 3 m box
+// would stand 1.5 m outside the mid-body envelope (half width 12).
 export const ROOMS = {
-  hold: { name: 'Main hold', z: [-26, -14], x: [-6, 6], floorY: -1.5, ceilY: 2.7 },
-  // the corridor is a ring: two side legs plus a fore and an aft leg. Each leg
-  // is its own box so the check tests real geometry and not the bounding shell.
-  corridorPort: { name: 'Ring corridor (port)', z: [-30, -10], x: [-12, -9.6], floorY: -1.5, ceilY: 1.1 },
-  corridorStbd: { name: 'Ring corridor (starboard)', z: [-30, -10], x: [9.6, 12], floorY: -1.5, ceilY: 1.1 },
+  hold: { name: 'Main hold', z: [-26, -14], x: [-6, 6], floorY: -1.5, ceilY: 3.0 },
+  // the corridor is a ring of four boxes that share faces and never volume:
+  // the side legs run between the aft and the fore leg, so the check tests
+  // real geometry and not the bounding shell.
+  corridorPort: { name: 'Ring corridor (port)', z: [-27.6, -12.4], x: [-12, -9.6], floorY: -1.5, ceilY: 1.1 },
+  corridorStbd: { name: 'Ring corridor (starboard)', z: [-27.6, -12.4], x: [9.6, 12], floorY: -1.5, ceilY: 1.1 },
   corridorAft: { name: 'Ring corridor (aft)', z: [-30, -27.6], x: [-12, 12], floorY: -1.5, ceilY: 1.1 },
   corridorFwd: { name: 'Ring corridor (fore)', z: [-12.4, -10], x: [-12, 12], floorY: -1.5, ceilY: 1.1 },
   // 2.4 m clear from the hold floor; M1 ramps it up to the cockpit floor (-1.0)
   tunnel: { name: 'Cockpit tunnel', z: [-10, 10], x: [-1.1, 1.1], floorY: -1.5, ceilY: 0.9 },
   cockpit: { name: 'Cockpit', z: [10, 18], x: [-2.5, 2.5], floorY: -1.0, ceilY: 2.2 },
-  bunks: { name: 'Bunks', z: [-14, -10], x: [7, 12], floorY: -1.5, ceilY: 1.1 },
+  // bunks and airlock sit FORWARD of the ring's fore leg (Z -10) and open onto
+  // it: at the spec's Z -14..-10 they stood inside the corridor's own volume.
+  bunks: { name: 'Bunks', z: [-10, -6], x: [7, 12], floorY: -1.5, ceilY: 1.1 },
   engineering: { name: 'Engineering', z: [-40, -30], x: [-5, 5], floorY: -1.5, ceilY: 4.0 },
-  airlock: { name: 'Airlock', z: [-11.5, -8.5], x: [-12, -9], floorY: -1.5, ceilY: 1.1 },
+  airlock: { name: 'Airlock', z: [-10, -7], x: [-12, -9], floorY: -1.5, ceilY: 1.1 },
 };
 
-// ---------- cupola, well, canopy (SPEC section 7.3) ----------
+// ---------- cupola, well, canopy (spec section 7.3) ----------
 // The well and the cupola are the one thing allowed to pierce the top skin.
 export const CUPOLA = {
   x: 0, z: -18,
@@ -121,7 +120,7 @@ export const CUPOLA = {
 };
 export const WELL = {
   x: CUPOLA.x, z: CUPOLA.z,
-  bottomY: ROOMS.hold.ceilY,   // 2.7, the hold ceiling
+  bottomY: ROOMS.hold.ceilY,   // 3.0, the hold ceiling
   topY: TOP_SKIN_AT_CUPOLA,    // 7.4, the cupola ring
   radius: 0.9,                 // 1.8 m diameter opening
 };
@@ -132,17 +131,27 @@ export const CANOPY = {
   panes: 5,
 };
 
-// ---------- debug camera rail (task 0.3) ----------
-// A straight line under the well opening, looking up it. t = 0 to 1.
+// ---------- debug camera poses (task 0.3), hull frame ----------
+// rail: a straight line under the well opening, looking up it, t = 0 to 1.
 // Eye 1.7 m over the hold floor. The ends stay within 1.0 m of the well axis:
-// a ray from 2.5 m below the hole and x off-axis leaves the 4.7 m tube at
-// 2.88 x, so from 1.0 m about nine tenths of the opening are still sky and
-// from 2.5 m none of it is (measured 02.09.2026, the first rail was +-2.5).
-export const RAIL = {
-  from: { x: -1.0, y: 0.2, z: CUPOLA.z },
-  to: { x: 1.0, y: 0.2, z: CUPOLA.z },
-  lookAt: { x: CUPOLA.x, y: WELL.topY, z: CUPOLA.z },
+// a ray from 2.8 m below the hole and x off-axis leaves the 4.4 m tube at
+// 2.57 x, so from 1.0 m most of the opening is still sky and from 2.5 m none
+// of it is (measured 02.09.2026, the first rail was +-2.5).
+// cupola: the seated eye point under the bubble, looking aft and a little
+// down at the two engine humps. The spike has no cupola geometry, so this
+// camera stands in open space above the skin; the humps are in the hull GLB.
+export const POSES = {
+  rail: {
+    from: { x: -1.0, y: 0.2, z: CUPOLA.z },
+    to: { x: 1.0, y: 0.2, z: CUPOLA.z },
+    lookAt: { x: CUPOLA.x, y: WELL.topY, z: CUPOLA.z },
+  },
+  cupola: {
+    eye: { x: CUPOLA.x, y: CUPOLA.eyeY, z: CUPOLA.z },
+    lookAt: { x: 0, y: ENGINE_HUMPS.y, z: ENGINE_HUMPS.z },
+  },
 };
+export const RAIL = POSES.rail;
 export function railPointHull(t) {
   const k = Math.max(0, Math.min(1, t));
   return {

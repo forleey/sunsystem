@@ -11,7 +11,7 @@
 // Nothing from the space scene is ever copied into the interior scene.
 import * as THREE from 'three';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, RAIL, hullToInterior, railPointHull } from './hull_frame.js?v=100';
+import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, POSES, hullToInterior, railPointHull } from './hull_frame.js?v=100';
 import { buildSpikeDeck } from './deck_spike.js?v=100';
 
 const v3 = (p) => new THREE.Vector3(p.x, p.y, p.z);
@@ -34,6 +34,11 @@ export class InteriorRig {
     this.pass = new RenderPass(this.scene, this.camera);
     this.pass.clear = false;                 // keep the space image
     this.pass.clearDepth = true;             // but start the deck on a fresh depth buffer
+    // three 0.170's RenderPass calls renderer.clearDepth() BEFORE
+    // setRenderTarget(readBuffer), so it clears whatever target is bound at
+    // that moment. That is readBuffer only because this pass sits at index 1,
+    // directly behind the space pass, which renders into readBuffer and leaves
+    // it bound (needsSwap is false). Nothing may ever be inserted between them.
 
     stage.onResize.push((w, h) => { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); });
     // hull glass is visible from outside and switched off while boarded
@@ -48,16 +53,20 @@ export class InteriorRig {
     this._prevFov = CAMERA.spaceFovDefault;
     this._prevMask = stage.camera.layers.mask;
 
-    this.applyUrlPose();
-    if (this.railT === null) this.setRail(0.5);   // the spike has no walk mode yet
+    if (!this.applyUrlPose()) this.setRail(0.5);   // the spike has no walk mode yet
   }
 
-  // ?pose=rail&t=0..1 places the interior camera on the debug rail at boot
+  // ?pose=rail&t=0..1 puts the interior camera on the debug rail at boot,
+  // ?pose=cupola at the cupola seat looking aft at the engine humps.
+  // Returns true when the URL named a pose.
   applyUrlPose() {
     const q = new URLSearchParams(location.search);
-    if (q.get('pose') !== 'rail') return;
+    const pose = q.get('pose');
+    if (pose === 'cupola') { this.setCupola(); return true; }
+    if (pose !== 'rail') return false;
     const t = parseFloat(q.get('t'));
     this.setRail(Number.isFinite(t) ? t : 0);
+    return true;
   }
 
   // debug pose: a straight line under the well, looking up at the opening.
@@ -66,12 +75,25 @@ export class InteriorRig {
     this.railT = Math.max(0, Math.min(1, t));
     const h = railPointHull(this.railT);
     const p = hullToInterior(h.x, h.y, h.z);
-    const look = hullToInterior(RAIL.lookAt.x, RAIL.lookAt.y, RAIL.lookAt.z);
+    const look = hullToInterior(POSES.rail.lookAt.x, POSES.rail.lookAt.y, POSES.rail.lookAt.z);
     this.camera.position.set(p.x, p.y, p.z);
     this.camera.up.set(0, 0, -1);            // interior -Z is the hull nose
     this.camera.lookAt(look.x, look.y, look.z);
     this.camera.updateMatrixWorld(true);
     return this.railT;
+  }
+
+  // debug pose: seated eye point in the cupola, looking aft and slightly down
+  // at the engine humps of the hull GLB (the space scene shows them)
+  setCupola() {
+    this.railT = null;
+    const c = POSES.cupola;
+    const p = hullToInterior(c.eye.x, c.eye.y, c.eye.z);
+    const look = hullToInterior(c.lookAt.x, c.lookAt.y, c.lookAt.z);
+    this.camera.position.set(p.x, p.y, p.z);
+    this.camera.up.set(0, 1, 0);
+    this.camera.lookAt(look.x, look.y, look.z);
+    this.camera.updateMatrixWorld(true);
   }
 
   board() {

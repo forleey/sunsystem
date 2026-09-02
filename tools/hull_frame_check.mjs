@@ -3,8 +3,8 @@
 // is the one exception and is checked separately (it pierces the top skin by
 // design). Run: node tools/hull_frame_check.mjs
 import {
-  ROOMS, WELL, CUPOLA, ENVELOPE, envelopeAt, hullToInterior, hullToLocalKm,
-  DECK_ANCHOR_KM, TOP_SKIN_AT_CUPOLA, railPointHull, RAIL,
+  ROOMS, WELL, CUPOLA, ENVELOPE, ENGINE_HUMPS, envelopeAt, hullToInterior, hullToLocalKm,
+  DECK_ANCHOR_KM, TOP_SKIN_AT_CUPOLA, railPointHull, RAIL, POSES,
 } from '../js/interior/hull_frame.js';
 
 const EPS = 1e-6;
@@ -42,6 +42,24 @@ for (const [key, r] of Object.entries(ROOMS)) {
   if (r.floorY < e.bottomY - EPS) fail(`${label}: floor ${r.floorY} below hull bottom ${e.bottomY.toFixed(2)} (${e.region})`);
 }
 
+// no two rooms may share volume. Shared faces (the four corridor legs meet
+// at their ends, bunks and airlock lean on the fore leg) are touching, not
+// overlapping: an interval pair that only meets at one number is allowed.
+const boxes = Object.entries(ROOMS);
+let pairs = 0;
+const spans = (r) => [[r.x[0], r.x[1]], [r.floorY, r.ceilY], [r.z[0], r.z[1]]];
+const overlap1 = ([a0, a1], [b0, b1]) => Math.min(a1, b1) - Math.max(a0, b0) > EPS;
+for (let i = 0; i < boxes.length; i++) {
+  for (let j = i + 1; j < boxes.length; j++) {
+    pairs++;
+    const [ka, a] = boxes[i], [kb, b] = boxes[j];
+    const sa = spans(a), sb = spans(b);
+    if (overlap1(sa[0], sb[0]) && overlap1(sa[1], sb[1]) && overlap1(sa[2], sb[2])) {
+      fail(`${ka} and ${kb} share volume`);
+    }
+  }
+}
+
 // the well and the cupola pierce the skin on purpose: only their fixed numbers
 if (!near(WELL.radius, 0.9)) fail(`well radius ${WELL.radius} is not 0.9 (1.8 m opening)`);
 if (!near(WELL.topY, TOP_SKIN_AT_CUPOLA)) fail(`well top ${WELL.topY} is not the top skin ${TOP_SKIN_AT_CUPOLA}`);
@@ -66,10 +84,13 @@ if (WELL.z - WELL.radius < ROOMS.hold.z[0] || WELL.z + WELL.radius > ROOMS.hold.
   const a = railPointHull(0), b = railPointHull(1), m = railPointHull(0.5);
   if (!near(a.x, RAIL.from.x) || !near(b.x, RAIL.to.x) || !near(m.x, 0)) fail('rail does not run from RAIL.from.x to RAIL.to.x through 0');
   if (!near(m.z, CUPOLA.z)) fail('rail does not run under the cupola');
+  const c = POSES.cupola;
+  if (!near(c.eye.y, CUPOLA.eyeY) || !near(c.eye.z, CUPOLA.z)) fail('cupola pose does not sit at the cupola eye point');
+  if (!near(c.lookAt.z, ENGINE_HUMPS.z) || !near(c.lookAt.y, ENGINE_HUMPS.y)) fail('cupola pose does not look at the engine humps');
 }
 
 if (fails.length) {
   for (const f of fails) console.error('FAIL ' + f);
   process.exit(1);
 }
-console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m, ${ENVELOPE.length} envelope regions`);
+console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, ${pairs} room pairs without shared volume, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m, ${ENVELOPE.length} envelope regions`);

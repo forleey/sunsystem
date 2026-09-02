@@ -126,7 +126,7 @@ Measured with `tools/hullprobe.mjs` on `models_src/hero/valkyrie.glb` (longest a
 
 Design consequences:
 
-- **Deck floor at Y −1.5 m, ceiling at Y +3.0 m** through the aft and mid body. Corridors get a 2.6 m clear height, the hold 4.2 m under the exposed structure.
+- **Deck floor at Y −1.5 m, ceiling at Y +3.0 m** through the aft and mid body. Corridors get a 2.6 m clear height, the hold 4.5 m under the exposed structure.
 - **Cupola at (X 0, Z −18) on the top skin at Y +7.4.** A flat saddle: two engine humps 2.6 m higher just aft, the dorsal bump forward, the wing spreading to both sides. The view from the bubble has the ship in it, which is what makes it *this* ship's cupola rather than a planetarium. Reached by a **4.4 m vertical well** with a ladder from the hold ceiling (+3.0) to the cupola ring (+7.4).
 - **Cockpit at Z +10 to +18, floor Y −1.0, window sill +2.2.** The forward taper narrows the room naturally to 5 m wide. The exterior gets a five-pane canopy patch here; the Valkyrie mesh has none.
 - **Engineering aft at Z −40 to −30**, under the humps: the tallest space on the deck, for the drive core.
@@ -162,14 +162,14 @@ Positions in hull coordinates (X right, Y up, Z nose), sizes in metres. The play
 
 | Room | Position (Z, X) | Size (L×W×H) | Purpose and what you see |
 |---|---|---|---|
-| **Main hold** | Z −26 to −14, X ±6 | 12 × 12 × 4.2 | The heart. Curved padded bench around a round table with a slow holographic system map (the game's own body positions from `sim`). Engineering wall aft with pipes and the breaker panel. Ceiling open to structure and ducts. The cupola well rises from the aft-centre of the ceiling. |
+| **Main hold** | Z −26 to −14, X ±6 | 12 × 12 × 4.5 | The heart. Curved padded bench around a round table with a slow holographic system map (the game's own body positions from `sim`). Engineering wall aft with pipes and the breaker panel. Ceiling open to structure and ducts. The cupola well rises from the aft-centre of the ceiling. |
 | **Cupola well and cupola** | Z −18, X 0 | well 1.8 Ø × 4.4 tall; cupola 3.2 Ø × 1.1 above skin | Ladder in the well, handrail ring at the top, a swivel seat under the bubble. Seven panes: one round on top, six trapezoids around, aluminium frames 8 cm wide. **The real universe outside**, with the wing, the humps and the exhaust glow of your own ship in frame. |
 | **Ring corridor** | around the hold, Z −30 to −10, X ±9 to ±12 | 2.4 wide, 2.6 clear | The octagonal ribbed profile, the signature walk. Connects hold, cockpit tunnel, bunks, engineering. Floor grating with lit conduits beneath. |
 | **Cockpit tunnel** | Z −10 to +10, X 0 | 20 × 2.2 × 2.4 | Narrow, ribbed, three porthole slits on the starboard side (exterior counterpart patches). Builds anticipation for the cockpit. |
 | **Cockpit** | Z +10 to +18, X ±2.5 | 8 × 5 × 3.2 | Four seats (two forward, two aft), console with gauges and switches, overhead panel, five-pane window forward and up. Sitting in the pilot seat sets a seated pose (no flying yet, section 12). |
-| **Bunks** | Z −14 to −10, X +7 to +12 | 4 × 5 × 2.6 | Two bunks with curtains, a locker, a small amber lamp. The one warm, soft room. |
+| **Bunks** | Z −10 to −6, X +7 to +12 | 4 × 5 × 2.6 | Two bunks with curtains, a locker, a small amber lamp. The one warm, soft room. |
 | **Engineering** | Z −40 to −30, X ±5 | 10 × 10 × 5.5 | The drive core: a vertical cylinder with a slow-pulsing blue-white ring, gantry grating around it, the loudest hum, the red standby lamp, one panel that sparks now and then. |
-| **Airlock** | Z −10, X −12 | 3 × 3 × 2.6 | Closed outer door with a small round window (another true aperture, side view). Later: EVA. |
+| **Airlock** | Z −10 to −7, X −12 to −9 (outboard wall at X −12) | 3 × 3 × 2.6 | Closed outer door with a small round window (another true aperture, side view). Later: EVA. |
 | **Under-deck** | everywhere | (crawlspace, not walkable) | Two floor hatches in the corridor open to a lit crawlspace you can look into. Smuggler compartments. |
 
 Walk path: hold → cupola (climb, sit, look) → ring corridor → bunks → engineering → corridor → cockpit tunnel → cockpit (sit) → back. About 140 m of walking, two to three minutes.

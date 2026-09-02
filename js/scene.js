@@ -119,7 +119,11 @@ export function createStage(container) {
   function setPixelRatio(pr) { renderer.setPixelRatio(pr); setSize(); }
 
   // second scene on top of the space render (ship interior): the pass goes
-  // directly behind the space RenderPass, before bloom and the grade.
+  // directly behind the space RenderPass, before bloom and the grade. Index 1
+  // is load-bearing: RenderPass (three 0.170) calls renderer.clearDepth()
+  // before setRenderTarget(readBuffer), so the depth clear lands on whatever
+  // target the previous pass left bound, and only the space pass leaves
+  // readBuffer bound. Never insert anything between the two.
   function insertPassAfterScene(pass) {
     if (composer.passes.indexOf(pass) < 0) composer.insertPass(pass, 1);
   }
