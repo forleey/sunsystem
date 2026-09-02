@@ -5,6 +5,7 @@
 import {
   ROOMS, WELL, CUPOLA, ENVELOPE, RIDGE, envelopeAt, hullToInterior, M_TO_KM,
   DECK_ANCHOR_KM, TOP_SKIN_AT_CUPOLA, TOP_SKIN_AT_RING, CUPOLA_GLASS, railPointHull, POSES,
+  WALK, DOOR, STEPS, LADDER, SEATS, CORE, SPAWN, SHELL, doorways,
 } from '../js/interior/hull_frame.js';
 
 const EPS = 1e-6;
@@ -112,8 +113,80 @@ if (WELL.z - WELL.radius < ROOMS.hold.z[0] || WELL.z + WELL.radius > ROOMS.hold.
   if (!(c.lookAt.z < c.eye.z && c.lookAt.y < c.eye.y)) fail('cupola pose does not look aft and down');
 }
 
+// ---------- M1: doorways, steps, ladder, seats, spawn, poses ----------
+const inRoom = (r, x, z) => x >= r.x[0] - EPS && x <= r.x[1] + EPS && z >= r.z[0] - EPS && z <= r.z[1] + EPS;
+const roomOf = (x, z) => Object.entries(ROOMS).find(([, r]) => inRoom(r, x, z));
+const doors = doorways();
+// every room but the hold must be reachable: a graph walk over the doorways
+{
+  const adj = new Map(Object.keys(ROOMS).map(k => [k, new Set()]));
+  for (const d of doors) { adj.get(d.a).add(d.b); adj.get(d.b).add(d.a); }
+  const seen = new Set(['hold']), q = ['hold'];
+  while (q.length) for (const n of adj.get(q.shift())) if (!seen.has(n)) { seen.add(n); q.push(n); }
+  for (const k of Object.keys(ROOMS)) if (!seen.has(k)) fail(`${k} is not reachable from the hold through any doorway`);
+}
+for (const d of doors) {
+  if (d.width < DOOR.minWidth - EPS) fail(`doorway ${d.a}-${d.b} is ${d.width.toFixed(2)} m wide, under ${DOOR.minWidth}`);
+  if (d.clear < DOOR.minClear - EPS) fail(`doorway ${d.a}-${d.b} clears ${d.clear.toFixed(2)} m, under ${DOOR.minClear.toFixed(2)}`);
+  // the walkable width inside the slabs must hold the capsule on both sides
+  for (const k of [d.a, d.b]) {
+    const r = ROOMS[k], span = d.axis === 'x' ? 'z' : 'x';
+    if (r[span][1] - r[span][0] - 2 * SHELL.thickness < 2 * WALK.radius + 0.1) fail(`${k} is too narrow for the capsule`);
+  }
+}
+// no wall is thinner than the shell allows around a door
+if (DOOR.margin < SHELL.thickness - EPS) fail('door margin under the slab thickness leaves a sliver of wall');
+// the steps: each tread within the step height of the one below, the top tread level with the cockpit floor
+{
+  const treads = [ROOMS.tunnel.floorY, ...STEPS.map(s => s.topY)];
+  for (let i = 1; i < treads.length; i++) if (treads[i] - treads[i - 1] > WALK.step + EPS) fail(`step ${i} rises ${(treads[i] - treads[i - 1]).toFixed(2)}, over ${WALK.step}`);
+  if (!near(treads[treads.length - 1], ROOMS.cockpit.floorY)) fail('top step is not level with the cockpit floor');
+  for (const s of STEPS) if (!inRoom(ROOMS.tunnel, s.x[0], s.z[0]) || !inRoom(ROOMS.tunnel, s.x[1], s.z[1])) fail('a step lies outside the tunnel');
+  const clearOverTop = ROOMS.tunnel.ceilY - ROOMS.cockpit.floorY;
+  if (clearOverTop < WALK.height + 0.1) fail(`only ${clearOverTop.toFixed(2)} m over the top step`);
+}
+// the ladder stands in the hold at the fore edge of the well and ends at the seat platform
+{
+  if (!inRoom(ROOMS.hold, LADDER.x, LADDER.z)) fail('ladder is not in the hold');
+  if (Math.abs(LADDER.z - WELL.z) > WELL.radius + EPS) fail('ladder is outside the well opening');
+  const climber = LADDER.z - LADDER.standoff;
+  if (Math.hypot(climber - WELL.z, LADDER.x - WELL.x) + WALK.radius > WELL.radius + EPS) fail('climber does not fit inside the well');
+  if (!near(LADDER.bottomY, ROOMS.hold.floorY)) fail('ladder does not start on the hold floor');
+  if (!near(LADDER.topY, CUPOLA.platformY)) fail('ladder does not end at the seat platform');
+  if (!(CUPOLA.platformY < CUPOLA.ringY && CUPOLA.platformY > WELL.bottomY)) fail('seat platform is not inside the well');
+  if (!(CUPOLA.eyeY > CUPOLA.ringY && CUPOLA.eyeY < CUPOLA.ringY + CUPOLA.height - 0.2)) fail(`seated eye ${CUPOLA.eyeY} is not between the ring and the dome`);
+  if (!near(CUPOLA.eyeY, CUPOLA.platformY + WALK.seatedEye)) fail('seated eye is not WALK.seatedEye over the platform');
+  if (!near(SEATS.cupola.floorY, CUPOLA.platformY)) fail('cupola seat is not on the platform');
+}
+// walk-in seats stand in a room, with their stand point in the same room; the spawn stands in the hold
+for (const [k, s] of Object.entries(SEATS)) {
+  if (s.reachedByLadder) continue;
+  const r = roomOf(s.x, s.z);
+  if (!r) fail(`seat ${k} is outside every room`);
+  else if (!near(r[1].floorY, s.floorY)) fail(`seat ${k} floats over the ${r[0]} floor`);
+  if (s.standAt && (!roomOf(s.standAt.x, s.standAt.z) || roomOf(s.standAt.x, s.standAt.z)[0] !== (r && r[0]))) fail(`seat ${k} stand point is not in its room`);
+}
+if (!roomOf(CORE.x, CORE.z) || roomOf(CORE.x, CORE.z)[0] !== 'engineering') fail('core is not in engineering');
+if (!inRoom(ROOMS.engineering, CORE.x - CORE.radius, CORE.z - CORE.radius) || !inRoom(ROOMS.engineering, CORE.x + CORE.radius, CORE.z + CORE.radius)) fail('core pokes out of engineering');
+if (!roomOf(SPAWN.x, SPAWN.z) || roomOf(SPAWN.x, SPAWN.z)[0] !== 'hold') fail('spawn is not in the hold');
+if (Math.hypot(SPAWN.x - LADDER.x, SPAWN.z - LADDER.z) < 2 * WALK.radius + 0.3) fail('spawn stands in the ladder');
+// standing poses stand in their named room at eye height; seat poses at the seated eye
+let poses = 0;
+for (const [k, p] of Object.entries(POSES)) {
+  if (k === 'rail') continue;
+  poses++;
+  if (p.room) {
+    const r = ROOMS[p.room];
+    if (!inRoom(r, p.eye.x, p.eye.z)) fail(`pose ${k} is outside ${p.room}`);
+    if (!near(p.eye.y, r.floorY + WALK.eye)) fail(`pose ${k} eye is not WALK.eye over the floor`);
+  } else if (p.seat) {
+    const s = SEATS[p.seat];
+    if (!near(p.eye.x, s.x) || !near(p.eye.z, s.z) || !near(p.eye.y, s.floorY + WALK.seatedEye)) fail(`pose ${k} is not the ${p.seat} seat's eye`);
+  } else fail(`pose ${k} names neither a room nor a seat`);
+}
+
 if (fails.length) {
   for (const f of fails) console.error('FAIL ' + f);
   process.exit(1);
 }
-console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, ${pairs} room pairs without shared volume, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m on skin +${TOP_SKIN_AT_CUPOLA}, ${ENVELOPE.length} envelope rows, glass collar ${CUPOLA_GLASS.collar.bottomY} to ${CUPOLA_GLASS.collar.topY} on skin ${TOP_SKIN_AT_RING}`);
+console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, ${pairs} room pairs without shared volume, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m on skin +${TOP_SKIN_AT_CUPOLA}, ${ENVELOPE.length} envelope rows, glass collar ${CUPOLA_GLASS.collar.bottomY} to ${CUPOLA_GLASS.collar.topY} on skin ${TOP_SKIN_AT_RING}, ${doors.length} doorways >= ${DOOR.minWidth} m wide and ${DOOR.minClear.toFixed(1)} m clear, every room reachable, ${STEPS.length} steps <= ${WALK.step} m, ${poses} poses`);

@@ -25,12 +25,12 @@
 
 ## M1 Shell and walk
 
-- [ ] **1.1 `deck.js` + `ShellBox` list.** All eight rooms as boxes with doorway gaps, ring corridor, well, cockpit tunnel. Check: `tools/hull_frame_check.mjs` extended: no two walkable volumes overlap, every doorway gap is ≥ 0.9 m wide.
-- [ ] **1.2 Room shells (untextured).** Octagonal corridor profile with ribs every 1.2 m (`greeble.js` rib), hold, cockpit taper, bunks, engineering, airlock, the well. Check: screenshot set of eight poses via `?board=1&pose=…`.
-- [ ] **1.3 `walk.js`.** WASD + pointer-lock look, capsule-vs-boxes per-axis resolution, step height, sticky ground, eye height; `drive(input)` seam. Check: `walkTest()` moves, stays grounded, never falls through the hold floor for 30 s of random input.
-- [ ] **1.4 Ladder and seats.** `E` prompt (hint bar), scripted climb and descent, cupola seat with pitch limits, pilot seat. Check: `walkTest()` reports `climbed=True satCupola=True satCockpit=True`.
-- [ ] **1.5 Entry points.** `V` in ship view, `BOARD` in the settings panel, `EXPLORE SHIP` on the title screen (Free Mode already boarded), `Esc`/`V` to leave, spawn in the hold facing the well. Check: each entry and exit path in a scripted click test through the offscreen browser.
-- [ ] **1.6 Acceptance.** `WALKTEST result=PASS rooms=8 …`; screenshot set `m1_*.png`; bump, deploy, live-check.
+- [x] **1.1 `deck.js` + `ShellBox` list.** All eight rooms as boxes with doorway gaps, ring corridor, well, cockpit tunnel. Check: `tools/hull_frame_check.mjs` extended: no two walkable volumes overlap, every doorway gap is ≥ 0.9 m wide.
+- [x] **1.2 Room shells (untextured).** Octagonal corridor profile with ribs every 1.2 m (`greeble.js` rib), hold, cockpit taper, bunks, engineering, airlock, the well. Check: screenshot set of eight poses via `?board=1&pose=…`.
+- [x] **1.3 `walk.js`.** WASD + pointer-lock look, capsule-vs-boxes per-axis resolution, step height, sticky ground, eye height; `drive(input)` seam. Check: `walkTest()` moves, stays grounded, never falls through the hold floor for 30 s of random input.
+- [x] **1.4 Ladder and seats.** `E` prompt (hint bar), scripted climb and descent, cupola seat with pitch limits, pilot seat. Check: `walkTest()` reports `climbed=True satCupola=True satCockpit=True`.
+- [x] **1.5 Entry points.** `V` in ship view, `BOARD` in the settings panel, `EXPLORE SHIP` on the title screen (Free Mode already boarded), `Esc`/`V` to leave, spawn in the hold facing the well. Check: each entry and exit path in a scripted click test through the offscreen browser.
+- [x] **1.6 Acceptance.** `WALKTEST result=PASS rooms=8 …`; screenshot set `m1_*.png`; bump, deploy, live-check.
 
 ## M2 Surfaces and light
 

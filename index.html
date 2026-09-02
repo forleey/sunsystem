@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>STARBLAZER · A Living Sol System</title>
-<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=101">
+<link rel="icon" type="image/svg+xml" href="./favicon.svg?v=102">
 <meta name="theme-color" content="#02040a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -152,7 +152,15 @@
   body:not(.title) #title{display:none;}
   body.title :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#toast){display:none !important;}
   /* boarded (ship interior): the helm UI belongs to the exterior view */
-  body.boarded :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#toast,#editorToggle){display:none !important;}
+  body.boarded :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#editorToggle){display:none !important;}
+  /* the one line of UI inside: controls, or the E prompt when something is in reach */
+  #hint{display:none; position:fixed; left:50%; bottom:26px; transform:translateX(-50%); z-index:5;
+    font-family:'Orbitron','SF Mono',ui-monospace,monospace; font-weight:500; font-size:11px;
+    letter-spacing:.2em; text-transform:uppercase; color:var(--dim); padding:9px 18px; border-radius:999px;
+    background:var(--glass); border:1px solid var(--line); backdrop-filter:blur(14px) saturate(1.3);
+    white-space:nowrap; pointer-events:none; transition:color .18s ease, border-color .18s ease;}
+  body.boarded #hint{display:block;}
+  #hint.prompt{color:var(--acc); border-color:var(--acc);}
   #titleInner{text-align:center; transform:translateY(-4vh); padding:0 20px;}
   /* game logo: elaborate inline-SVG chrome wordmark (markup in #title).
      No CSS filter on the SVG: WebKit renders filters on inline SVG in software,
@@ -193,6 +201,9 @@
   .mode:hover{transform:translateY(-3px); border-color:var(--acc);
     background:rgba(106,209,255,.10); box-shadow:0 0 24px rgba(106,209,255,.18);}
   .mode.battle b{color:var(--acc2);}
+  .mode.explore b{color:#ffd9a3;}
+  .mode.explore:hover{border-color:#ffd9a3; background:rgba(255,217,163,.08);
+    box-shadow:0 0 24px rgba(255,217,163,.14);}
   .mode.battle:hover{border-color:var(--acc2); background:rgba(255,179,92,.10);
     box-shadow:0 0 24px rgba(255,179,92,.16);}
   /* quiet options row under the mode select: music off, remembered per browser */
@@ -281,6 +292,7 @@
     <div id="modes">
       <button class="mode" id="m-free"><b>Free Mode</b></button>
       <button class="mode battle" id="m-battle"><b>Battle Mode</b></button>
+      <button class="mode explore" id="m-explore"><b>Explore Ship</b></button>
     </div>
     <div id="titleOpts">
       <button class="titleopt" id="m-music">&#9834; Music On</button>
@@ -333,6 +345,7 @@
     <div class="btnrow">
       <button id="b-reset">Realistic defaults</button>
       <button id="b-ship" class="warn">Ship → Earth orbit</button>
+      <button id="b-board">Board (V)</button>
     </div>
   </div></div>
 </div>
@@ -355,6 +368,8 @@
     <tr><td>hold LMB (ship)</td><td>steer — nose follows the mouse directly</td></tr>
     <tr><td>RMB drag &#8597; / wheel</td><td>ship view: camera height / distance · planets: LMB orbit & zoom</td></tr>
     <tr><td>V</td><td>board / leave the ship (interior)</td></tr>
+    <tr><td>aboard: W A S D · mouse</td><td>walk · look (LMB grabs the pointer)</td></tr>
+    <tr><td>aboard: E</td><td>climb the ladder · sit · stand up</td></tr>
     <tr><td>Esc</td><td>back to the start screen (mode select)</td></tr>
     <tr><td>R</td><td>cycle target lock (Battle Mode)</td></tr>
     <tr><td>G (hold)</td><td>laser cannons — light-speed hitscan (Battle Mode)</td></tr>
@@ -377,6 +392,7 @@
 </div>
 
 <div id="toast"></div>
+<div id="hint"></div>
 
 <script>
   window.addEventListener('error', e => { window.__lastErr = (e.message||'?') + ' @ ' + (e.filename||'') + ':' + (e.lineno||0); console.error('UNCAUGHT', window.__lastErr); });
@@ -388,6 +404,6 @@
     "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
 } }
 </script>
-<script type="module" src="./js/main.js?v=101"></script>
+<script type="module" src="./js/main.js?v=102"></script>
 </body>
 </html>

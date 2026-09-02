@@ -111,8 +111,11 @@ export const ROOMS = {
   corridorStbd: { name: 'Ring corridor (starboard)', z: [-27.6, -12.4], x: [9.6, 12], floorY: -1.5, ceilY: 1.1 },
   corridorAft: { name: 'Ring corridor (aft)', z: [-30, -27.6], x: [-12, 12], floorY: -1.5, ceilY: 1.1 },
   corridorFwd: { name: 'Ring corridor (fore)', z: [-12.4, -10], x: [-12, 12], floorY: -1.5, ceilY: 1.1 },
-  // 2.4 m clear from the hold floor; M1 ramps it up to the cockpit floor (-1.0)
-  tunnel: { name: 'Cockpit tunnel', z: [-10, 10], x: [-1.1, 1.1], floorY: -1.5, ceilY: 0.9 },
+  passageFwd: { name: 'Fore passage', z: [-14, -12.4], x: [-1.2, 1.2], floorY: -1.5, ceilY: 1.1 },
+  passageAft: { name: 'Aft passage', z: [-27.6, -26], x: [-1.2, 1.2], floorY: -1.5, ceilY: 1.1 },
+  // 2.7 m clear from the hold floor; two 0.25 m steps at the fore end (STEPS)
+  // climb to the cockpit floor (-1.0), leaving 2.2 m over the top step
+  tunnel: { name: 'Cockpit tunnel', z: [-10, 10], x: [-1.1, 1.1], floorY: -1.5, ceilY: 1.2 },
   cockpit: { name: 'Cockpit', z: [10, 18], x: [-2.5, 2.5], floorY: -1.0, ceilY: 2.2 },
   // bunks and airlock sit FORWARD of the ring's fore leg (Z -10) and open onto
   // it: at the spec's Z -14..-10 they stood inside the corridor's own volume.
@@ -129,8 +132,9 @@ export const CUPOLA = {
   ringY: 8.1,                  // where the dome meets the skin
   radius: 1.6,
   height: 1.1,                 // dome height above the ring
-  seatY: 8.55,                 // 0.45 over the well platform
-  eyeY: 9.3,                   // seated eye, 1.2 m above the skin
+  platformY: 7.6,              // seat platform in the well top, 0.5 under the ring
+  seatY: 8.05,                 // seat pan, 0.45 over the platform
+  eyeY: 8.8,                   // seated eye: 1.2 over the platform, 0.7 over the skin, 0.4 under the dome top
 };
 // exterior bubble (hull_glass.js): one hexagonal top pane over six trapezoid
 // side panes (seven, spec 7.3), 8 cm anodised frames, an open collar that
@@ -168,25 +172,112 @@ export const SELFTEST = {
   skyLum: 0.01,      // leak: a pixel of the wall frame darker than this is space
 };
 
-// ---------- debug camera poses (task 0.3), hull frame ----------
-// rail: a straight line under the well opening, looking up it, t = 0 to 1.
-// Eye 1.7 m over the hold floor. The ends stay within 1.0 m of the well axis:
-// a ray from 2.8 m below the hole and x off-axis leaves the 5.1 m tube at
-// 2.82 x, so from 1.0 m about a third of the opening is still sky and from
-// 2.8 m none of it is (the first rail was +-2.5, measured 02.09.2026).
-// cupola: the seated eye point under the bubble, looking aft and down onto
-// the flat dorsal deck. The spike has no cupola geometry, so this camera
-// stands in open space above the skin; the deck is the hull GLB itself.
+// ---------- walking (spec section 9), metres and seconds ----------
+export const WALK = {
+  speed: 2.7,            // m/s
+  eye: 1.62,             // eye over the feet, standing
+  seatedEye: 1.2,        // eye over the floor a seat stands on
+  radius: 0.34,          // capsule radius
+  height: 1.8,           // capsule height, feet to crown
+  step: 0.3,             // max step-up
+  lookSens: 0.0022,      // rad per pixel of pointer movement
+  pitchLimit: 1.45,      // rad, standing
+  gravity: 9.81,
+  useRange: 1.4,         // m, distance at which an E prompt appears
+};
+// shell construction (deck.js): every wall, floor and ceiling is a slab of
+// this thickness INSIDE its room, so two abutting rooms carry two slabs on
+// the shared face and the doorway is cut into both from the same rectangle.
+export const SHELL = { thickness: 0.2 };
+// doorways: cut where two rooms abut, centred on the shared face
+export const DOOR = {
+  maxWidth: 2.0,
+  margin: 0.2,           // wall left on either side at least (matches the slab thickness)
+  lintel: 0.2,           // wall left under the lower ceiling
+  minWidth: 0.9,         // checked by tools/hull_frame_check.mjs
+  minClear: WALK.height + 0.1,
+};
+// two treads at the fore end of the tunnel, up to the cockpit floor
+export const STEPS = [
+  { x: ROOMS.tunnel.x, z: [8.8, 10], topY: -1.25, bottomY: ROOMS.tunnel.floorY },
+  { x: ROOMS.tunnel.x, z: [9.4, 10], topY: ROOMS.cockpit.floorY, bottomY: ROOMS.tunnel.floorY },
+];
+// the ladder stands free in the hold on the fore edge of the well opening and
+// runs up the well's fore wall to the seat platform. The climber hangs 0.4 m
+// aft of the rungs, inside the 0.9 m well.
+export const LADDER = {
+  x: WELL.x, z: WELL.z + WELL.radius - 0.05,
+  width: 0.5, depth: 0.1,
+  bottomY: ROOMS.hold.floorY, topY: CUPOLA.platformY,
+  standoff: 0.5,            // climber's centre aft of the rung face (capsule radius 0.34 clears the 0.1 m rungs)
+  rungPitch: 0.3,
+  climbSeconds: 4.5,
+};
+// seats: pan box and where the player stands after getting up (hull frame).
+// facing is the hull-frame yaw of the seat's forward direction (0 = nose).
+export const SEATS = {
+  cupola: {
+    name: 'cupola', x: WELL.x, z: WELL.z - 0.45, floorY: CUPOLA.platformY, width: 0.5, depth: 0.5, facing: Math.PI,
+    yawFree: true, pitch: [-20 * Math.PI / 180, 90 * Math.PI / 180], reachedByLadder: true,
+  },
+  pilot: {
+    name: 'pilot', x: -0.9, z: 15.4, floorY: ROOMS.cockpit.floorY, width: 0.55, depth: 0.55, facing: 0,
+    yawFree: false, yaw: [-1.2, 1.2], pitch: [-0.9, 0.9], standAt: { x: -0.9, z: 14.4 },
+  },
+  copilot: { name: 'copilot', x: 0.9, z: 15.4, floorY: ROOMS.cockpit.floorY, width: 0.55, depth: 0.55, facing: 0, decorative: true },
+};
+// the drive core: a solid cylinder in the middle of engineering (visual + shell)
+export const CORE = { x: 0, z: -34.5, radius: 1.5, floorY: ROOMS.engineering.floorY, topY: ROOMS.engineering.ceilY };
+// where boarding puts the player: the hold, facing the ladder and the well
+export const SPAWN = { x: 0, z: -23, floorY: ROOMS.hold.floorY, yaw: 0 };
+
+// Doorways between abutting rooms, hull frame. A doorway is a rectangle on
+// the shared face: axis 'x' when the rooms meet on a plane x = at (the door
+// spans z), axis 'z' when they meet on z = at (the door spans x). Pure, so the
+// check tool and deck.js see the same openings.
+export function doorways(rooms = ROOMS) {
+  const out = [];
+  const keys = Object.keys(rooms);
+  const eq = (a, b) => Math.abs(a - b) < 1e-9;
+  for (let i = 0; i < keys.length; i++) for (let j = i + 1; j < keys.length; j++) {
+    const a = rooms[keys[i]], b = rooms[keys[j]];
+    const yOverlap = Math.min(a.ceilY, b.ceilY) - Math.max(a.floorY, b.floorY);
+    if (yOverlap <= 0) continue;
+    for (const [axis, span] of [['x', 'z'], ['z', 'x']]) {
+      let at = null;
+      if (eq(a[axis][1], b[axis][0])) at = a[axis][1];
+      else if (eq(b[axis][1], a[axis][0])) at = b[axis][1];
+      if (at === null) continue;
+      const s0 = Math.max(a[span][0], b[span][0]), s1 = Math.min(a[span][1], b[span][1]);
+      if (s1 - s0 <= 0) continue;
+      const width = Math.min(DOOR.maxWidth, s1 - s0 - 2 * DOOR.margin);
+      const mid = (s0 + s1) / 2;
+      const bottomY = Math.max(a.floorY, b.floorY);
+      const topY = Math.min(a.ceilY, b.ceilY) - DOOR.lintel;
+      out.push({ a: keys[i], b: keys[j], axis, at, span: [mid - width / 2, mid + width / 2], bottomY, topY, width, clear: topY - bottomY });
+    }
+  }
+  return out;
+}
+
+// ---------- camera poses (screenshots, self-tests), hull frame ----------
+// Standing poses put the eye WALK.eye over the room floor. rail is the perf
+// ride under the well; cupola and cockpit are the two seats.
+const standing = (x, z, room, lookAt) => ({ eye: { x, y: ROOMS[room].floorY + WALK.eye, z }, lookAt, room });
 export const POSES = {
   rail: {
     from: { x: -1.0, y: 0.2, z: CUPOLA.z },
     to: { x: 1.0, y: 0.2, z: CUPOLA.z },
     lookAt: { x: CUPOLA.x, y: WELL.topY, z: CUPOLA.z },
   },
-  cupola: {
-    eye: { x: CUPOLA.x, y: CUPOLA.eyeY, z: CUPOLA.z },
-    lookAt: { x: 0, y: DORSAL_DECK.y, z: -34 },
-  },
+  cupola: { eye: { x: SEATS.cupola.x, y: CUPOLA.eyeY, z: SEATS.cupola.z }, lookAt: { x: 0, y: DORSAL_DECK.y, z: -34 }, seat: 'cupola' },
+  cockpit: { eye: { x: SEATS.pilot.x, y: ROOMS.cockpit.floorY + WALK.seatedEye, z: SEATS.pilot.z }, lookAt: { x: 0, y: 1.0, z: 30 }, seat: 'pilot' },
+  hold: standing(2.5, -24.5, 'hold', { x: 0, y: WELL.topY, z: WELL.z }),
+  corridor: standing(-10.8, -26.5, 'corridorPort', { x: -10.8, y: 0, z: -12 }),
+  tunnel: standing(0, -8, 'tunnel', { x: 0, y: 0, z: 12 }),
+  bunks: standing(9, -9.6, 'bunks', { x: 9, y: 0, z: -6 }),
+  engineering: standing(0, -30.6, 'engineering', { x: 0, y: 1.0, z: -35 }),
+  airlock: standing(-9.5, -9.4, 'airlock', { x: -11, y: 0, z: -8.5 }),
 };
 export function railPointHull(t) {
   const k = Math.max(0, Math.min(1, t)), r = POSES.rail;

@@ -3,8 +3,8 @@
 // drive the live frame loop through tick and put everything back afterwards:
 // interior pose, ship attitude, boarded state, pixel ratio.
 import * as THREE from 'three';
-import { toRender } from '../scene.js?v=101';
-import { POSES, SELFTEST, CUPOLA, hullToInterior, railPointHull } from './hull_frame.js?v=101';
+import { toRender } from '../scene.js?v=102';
+import { POSES, SELFTEST, CUPOLA, ROOMS, LADDER, hullToInterior, railPointHull } from './hull_frame.js?v=102';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const NOSE = new THREE.Vector3(0, 0, -1);        // interior -Z is the hull nose
@@ -41,22 +41,26 @@ export function createSelfTests({ rig, stage, sim, shipView, tick }) {
     return { lum: n ? s / n : 0, ndc: [+v.x.toFixed(3), +v.y.toFixed(3)] };
   }
 
+  const walk = rig.walk;
   const snapshot = () => ({
-    boarded: rig.boarded, railT: rig.railT,
+    boarded: rig.boarded, railT: rig.railT, mode: rig.mode,
     quat: shipView.quat.clone(), angVel: shipView.angVel.clone(),
     pos: rig.camera.position.clone(), rot: rig.camera.quaternion.clone(), up: rig.camera.up.clone(),
+    walk: { pos: walk.pos.clone(), yaw: walk.yaw, pitch: walk.pitch, state: walk.state, seat: walk.seat, eyeOffset: walk.eyeOffset },
   });
   function restore(s) {
     shipView.quat.copy(s.quat); shipView.angVel.copy(s.angVel);
+    walk.pos.copy(s.walk.pos); walk.yaw = s.walk.yaw; walk.pitch = s.walk.pitch;
+    walk.state = s.walk.state; walk.seat = s.walk.seat; walk.eyeOffset = s.walk.eyeOffset; walk.climb = null;
     rig.camera.position.copy(s.pos); rig.camera.quaternion.copy(s.rot); rig.camera.up.copy(s.up);
     rig.camera.updateMatrixWorld(true);
-    rig.railT = s.railT;
+    rig.railT = s.railT; rig.mode = s.mode;
     if (!s.boarded) rig.leave();
   }
   // interior camera at a hull-frame eye point, looking along an interior direction
   function aim(eye, fwd, up) {
     const p = hullToInterior(eye.x, eye.y, eye.z);
-    rig.railT = null;
+    rig.setManual();
     rig.camera.position.set(p.x, p.y, p.z);
     rig.camera.up.copy(up);
     rig.camera.lookAt(p.x + fwd.x, p.y + fwd.y, p.z + fwd.z);
@@ -106,6 +110,75 @@ export function createSelfTests({ rig, stage, sim, shipView, tick }) {
       wallMin: +f3(wallMin), earthNdc: centre.ndc, pixels: fr.w * fr.h, cupolaZ: CUPOLA.z,
     };
     console.log(`WINDOWTEST result=${pass ? 'PASS' : 'FAIL'} earthSeen=${py(earthSeen)} leaks=${leaks} centre=${f3(centre.lum)} lit=${f3(lit.lum)} sky=${f3(sky.lum)} wallMin=${f3(wallMin)} ndc=${centre.ndc}`);
+    return r;
+  }
+
+  // Walks the deck without input events: hold, ladder (climb, sit under the
+  // cupola, climb down), fore passage, ring, bunks, aft ring, engineering, aft
+  // passage, port ring, airlock, tunnel, cockpit, pilot seat. Runs the walk
+  // controller synchronously at 60 Hz through its step() seam and checks
+  // moved / grounded / never fell / never stuck, rooms visited, both seats.
+  function walkTest() {
+    const prev = snapshot();
+    if (!rig.boarded) rig.board();
+    rig.mode = 'walk';
+    walk.spawn();
+    walk.stats = { fell: 0, minFeet: Infinity };
+    const dt = 1 / 60;
+    const H = (x, z) => hullToInterior(x, 0, z);
+    const path = [
+      H(0, -20), H(0, -17.55), { use: 'ladder' }, { wait: 1 }, { use: 'stand' },
+      H(1.2, -17.55), H(1.2, -15), H(0, -13.2), H(0, -11.2), H(9, -11.2), H(9, -8), H(9, -11.2),
+      H(10.8, -11.2), H(10.8, -28.8), H(0, -28.8), H(0, -32), H(0, -28.8), H(0, -26.8), H(0, -24),
+      H(0, -26.8), H(0, -28.8), H(-10.8, -28.8), H(-10.8, -11.2), H(-9.5, -11.2), H(-9.5, -8.5),
+      H(-9.5, -11.2), H(0, -11.2), H(0, 0), H(0, 8), H(0, 12), H(-0.9, 14.4), { use: 'sit' }, { wait: 0.5 }, { use: 'stand' },
+    ];
+    const rooms = new Set();
+    let time = 0, stuckAt = null, fellAt = null, maxDrop = 0, moved = 0, airborne = 0;
+    const last = walk.pos.clone();
+    const observe = () => {
+      const r = walk.roomAt();
+      if (r) rooms.add(r);
+      if (walk.state === 'walk') {
+        if (!walk.grounded) airborne++;
+        const floor = r ? rig.deck.rooms[r].min.y : null;
+        if (floor !== null && walk.pos.y < floor - 0.05) { fellAt = fellAt || { t: +time.toFixed(2), room: r, y: +walk.pos.y.toFixed(3) }; maxDrop = Math.max(maxDrop, floor - walk.pos.y); }
+      }
+      moved += walk.pos.distanceTo(last); last.copy(walk.pos);
+    };
+    for (const leg of path) {
+      if (leg.use) {
+        walk.step(dt, { use: true }); time += dt; observe();
+        let guard = 0;
+        while (walk.state === 'climb' && guard++ < 60 * 12) { walk.step(dt, {}); time += dt; observe(); }
+        if (leg.use === 'ladder' && walk.state !== 'seated') stuckAt = stuckAt || { t: +time.toFixed(2), at: 'ladder', state: walk.state };
+        if (leg.use === 'sit' && walk.state !== 'seated') stuckAt = stuckAt || { t: +time.toFixed(2), at: 'seat', state: walk.state, room: walk.roomAt() };
+        if (leg.use === 'stand' && walk.state !== 'walk') stuckAt = stuckAt || { t: +time.toFixed(2), at: 'stand', state: walk.state };
+        continue;
+      }
+      if (leg.wait) { for (let i = 0; i < leg.wait * 60; i++) { walk.step(dt, {}); time += dt; observe(); } continue; }
+      let best = Infinity, sinceProgress = 0, n = 0;
+      for (;;) {
+        const dx = leg.x - walk.pos.x, dz = leg.z - walk.pos.z, dist = Math.hypot(dx, dz);
+        if (dist < 0.25) break;
+        if (dist < best - 0.02) { best = dist; sinceProgress = 0; } else sinceProgress += dt;
+        if (sinceProgress > 2 || n++ > 60 * 40) { stuckAt = stuckAt || { t: +time.toFixed(2), room: walk.roomAt(), pos: walk.pos.toArray().map(v => +v.toFixed(2)), target: [leg.x, leg.z], dist: +dist.toFixed(2) }; break; }
+        walk.yaw = Math.atan2(-dx, -dz);
+        walk.step(dt, { fwd: 1 }); time += dt; observe();
+      }
+      if (stuckAt) break;
+    }
+    const st = walk.stats;
+    const wanted = Object.keys(ROOMS);
+    const missing = wanted.filter(k => !rooms.has(k));
+    const pass = !stuckAt && !fellAt && !!st.climbed && !!st.sat_cupola && !!st.sat_pilot && missing.length === 0 && moved > 100;
+    restore(prev);
+    const r = {
+      pass, rooms: rooms.size, missing, climbed: !!st.climbed, satCupola: !!st.sat_cupola, satCockpit: !!st.sat_pilot,
+      moved: +moved.toFixed(1), seconds: +time.toFixed(1), airborneFrames: airborne, stuckAt, fellAt, maxDrop: +maxDrop.toFixed(3),
+      ladderSeconds: LADDER.climbSeconds,
+    };
+    console.log(`WALKTEST result=${pass ? 'PASS' : 'FAIL'} rooms=${rooms.size}/${wanted.length} climbed=${py(r.climbed)} satCupola=${py(r.satCupola)} satCockpit=${py(r.satCockpit)} moved=${r.moved}m in ${r.seconds}s airborne=${airborne} stuck=${stuckAt ? JSON.stringify(stuckAt) : 'no'} fell=${fellAt ? JSON.stringify(fellAt) : 'no'}`);
     return r;
   }
 
@@ -193,5 +266,5 @@ export function createSelfTests({ rig, stage, sim, shipView, tick }) {
     return { pass, mode, dpr1, dpr2 };
   }
 
-  return { windowTest, perf };
+  return { windowTest, perf, walkTest };
 }

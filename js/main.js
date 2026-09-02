@@ -1,21 +1,21 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=101';
-import { Sim, V3 } from './physics.js?v=101';
-import { SystemView } from './bodies3d.js?v=101';
-import { ShipView } from './ship3d.js?v=101';
-import { UI } from './ui.js?v=101';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=101';
-import { Fleet } from './fleet.js?v=101';
-import { Music, renderTest } from './music.js?v=101';
-import { armShine } from './shine.js?v=101';
-import { initEnvironment } from './models.js?v=101';
-import { Combat } from './combat.js?v=101';
-import { Sfx } from './sfx.js?v=101';
-import { Editor } from './editor.js?v=101';
-import { InteriorRig } from './interior/rig.js?v=101';
-import { addHullGlass } from './interior/hull_glass.js?v=101';
-import { createSelfTests } from './interior/selftest.js?v=101';
+import { createStage, makeSky } from './scene.js?v=102';
+import { Sim, V3 } from './physics.js?v=102';
+import { SystemView } from './bodies3d.js?v=102';
+import { ShipView } from './ship3d.js?v=102';
+import { UI } from './ui.js?v=102';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=102';
+import { Fleet } from './fleet.js?v=102';
+import { Music, renderTest } from './music.js?v=102';
+import { armShine } from './shine.js?v=102';
+import { initEnvironment } from './models.js?v=102';
+import { Combat } from './combat.js?v=102';
+import { Sfx } from './sfx.js?v=102';
+import { Editor } from './editor.js?v=102';
+import { InteriorRig } from './interior/rig.js?v=102';
+import { addHullGlass } from './interior/hull_glass.js?v=102';
+import { createSelfTests } from './interior/selftest.js?v=102';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -146,7 +146,7 @@ const ui = new UI(sim, (name, beam) => {
 editor = new Editor({ stage, system, fleet, shipView, sim, ui });
 // ship interior (V boards, Esc leaves): a second scene drawn over the space
 // render, see js/interior/rig.js. Owns the space camera while boarded.
-const rig = new InteriorRig({ stage, shipView, getFocus: () => focusName, setFocus: n => applyFocus(n, false) });
+const rig = new InteriorRig({ stage, shipView, getFocus: () => focusName, setFocus: n => applyFocus(n, false), hintEl: document.getElementById('hint') });
 
 function focusRadiusKm() {
   if (focusName === 'Starship') return 0.2;
@@ -258,7 +258,7 @@ window.addEventListener('keydown', e => {
   if (document.body.classList.contains('title')) return;   // menu is up — helm keys idle
   if (e.code === 'KeyV') { if (!e.repeat) rig.toggle(); keys.clear(); return; }   // board / leave the ship interior
   if (e.code === 'KeyM') { setMusic(!musicWanted()); return; }   // music stays reachable from inside
-  if (rig.boarded) { keys.clear(); return; }               // no helm, jumps, focus or beams from inside
+  if (rig.boarded) { keys.clear(); return; }               // no helm, jumps, focus or beams from inside (walk.js has its own listeners)
   if (e.code === 'Backquote') { editor.toggle(); return; }  // ` toggles the editor
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();  // helm keys never drive UI controls
   keys.add(e.code);
@@ -364,12 +364,19 @@ function startGame(mode) {
   sim.resetShip();
   bootAttitude();
   applyFocus('Starship', false);
+  if (mode === 'explore') {          // Free Mode, already aboard: no fly-in, the deck is the first thing seen
+    rig.board();
+    ui.toast('Aboard. WASD walk · mouse look · E use · V leave', 4600);
+    return;
+  }
   startArrival();
   if (mode === 'battle') combat.setEnabled(true);
   else ui.toast('Free Mode — the system is yours. J jumps to Andromeda, H flies home.', 4600);
 }
 document.getElementById('m-free').addEventListener('click', () => startGame('free'));
 document.getElementById('m-battle').addEventListener('click', () => startGame('battle'));
+document.getElementById('m-explore').addEventListener('click', () => startGame('explore'));
+document.getElementById('b-board').addEventListener('click', e => { rig.board(); e.target.blur(); });
 
 // panel controls steal keyboard focus after a click/drag — give it back to the helm.
 // selects only blur on change: blurring on pointerup would close the dropdown mid-pick
@@ -465,9 +472,9 @@ function frameBody(now) {
   combat.place(fPos, stage.camera);
 
   if (rig.boarded) {
-    // interior: the rig poses the space camera from the walk camera every frame
+    // interior: the walk controller steps and the rig poses the space camera from it
     controls.enabled = false;
-    rig.update();
+    rig.update(dtWall);
   } else if (focusName === 'Starship') {
     controls.enabled = false;
     if (document.body.classList.contains('title')) {
@@ -606,4 +613,4 @@ music.onTrackChange(music.title);
 watchCtx();
 requestAnimationFrame(frame);
 // ?board=1: skip the menu and boot straight into the interior (dev deep link)
-if (new URLSearchParams(location.search).get('board') === '1') { startGame('free'); rig.board(); keys.clear(); }
+if (new URLSearchParams(location.search).get('board') === '1') { startGame('explore'); rig.applyUrlPose(); keys.clear(); }

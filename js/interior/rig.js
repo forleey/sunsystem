@@ -10,20 +10,29 @@
 // FXAA and the film look then run once over the combined image.
 //
 // Nothing from the space scene is ever copied into the interior scene.
+//
+// The interior camera is posed by one of three owners (this.mode):
+//   walk    the Walk controller (the game)
+//   rail    the debug rail under the well (perf ride, ?pose=rail)
+//   manual  whoever set it last (self-tests aim it themselves)
 import * as THREE from 'three';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, POSES, hullToInterior, railPointHull } from './hull_frame.js?v=101';
-import { buildSpikeDeck } from './deck_spike.js?v=101';
+import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, POSES, WALK, hullToInterior, railPointHull } from './hull_frame.js?v=102';
+import { buildDeck } from './deck.js?v=102';
+import { Walk } from './walk.js?v=102';
 
 const v3 = (p) => new THREE.Vector3(p.x, p.y, p.z);
+const DEFAULT_HINT = 'WASD walk · mouse look · E use · V leave';
 
 export class InteriorRig {
-  // getFocus/setFocus reach into main.js's focusName; stage owns the composer
-  constructor({ stage, shipView, getFocus, setFocus }) {
+  // getFocus/setFocus reach into main.js's focusName; stage owns the composer;
+  // hintEl is the one-line prompt bar shown while boarded
+  constructor({ stage, shipView, getFocus, setFocus, hintEl = null }) {
     this.stage = stage;
     this.shipView = shipView;
     this.getFocus = getFocus;
     this.setFocus = setFocus;
+    this.hintEl = hintEl;
     this.boarded = false;
 
     this.scene = new THREE.Scene();          // no background, no fog: space shows through
@@ -39,34 +48,43 @@ export class InteriorRig {
     // hull glass is visible from outside and switched off while boarded
     stage.camera.layers.enable(HULL_GLASS_LAYER);
 
-    buildSpikeDeck(this.scene);              // TEMP deck for milestone 0, replaced in M1
+    this.deck = buildDeck(this.scene);
+    this.walk = new Walk({ deck: this.deck, camera: this.camera, hint: (t) => this.showHint(t) });
+    this.mode = 'walk';
+    this.railT = null;
 
-    this.railT = null;                       // null = rail pose off
     this._anchor = v3(DECK_ANCHOR_KM);
     this._tmp = new THREE.Vector3();
     this._prevFocus = null;
     this._prevFov = stage.camera.fov;
     this._prevMask = stage.camera.layers.mask;
-
-    if (!this.applyUrlPose()) this.setRail(0.5);   // the spike has no walk mode yet
   }
 
-  // ?pose=rail&t=0..1 puts the interior camera on the debug rail at boot,
-  // ?pose=cupola at the cupola seat looking aft and down onto the dorsal deck.
-  // Returns true when the URL named a pose.
+  showHint(text) {
+    if (!this.hintEl) return;
+    this.hintEl.textContent = text || DEFAULT_HINT;
+    this.hintEl.classList.toggle('prompt', !!text);
+  }
+
+  // ?pose=<name> puts the camera at a fixed pose after boarding (screenshots):
+  // rail (with &t=0..1), cupola, cockpit, hold, corridor, tunnel, bunks,
+  // engineering, airlock. Returns true when the URL named a pose.
   applyUrlPose() {
     const q = new URLSearchParams(location.search);
     const pose = q.get('pose');
-    if (pose === 'cupola') { this.setCupola(); return true; }
-    if (pose !== 'rail') return false;
-    const t = parseFloat(q.get('t'));
-    this.setRail(Number.isFinite(t) ? t : 0);
-    return true;
+    if (!pose) return false;
+    if (pose === 'rail') {
+      const t = parseFloat(q.get('t'));
+      this.setRail(Number.isFinite(t) ? t : 0);
+      return true;
+    }
+    return this.setPose(pose);
   }
 
   // debug pose: a straight line under the well, looking up at the opening.
   // Screen up is the ship's nose, so the parallax reads as a sideways slide.
   setRail(t) {
+    this.mode = 'rail';
     this.railT = Math.max(0, Math.min(1, t));
     const h = railPointHull(this.railT);
     const p = hullToInterior(h.x, h.y, h.z);
@@ -78,20 +96,31 @@ export class InteriorRig {
     return this.railT;
   }
 
-  // debug pose: seated eye point in the cupola, looking aft and down onto the
-  // flat dorsal deck of the hull GLB (the space scene shows it)
-  setCupola() {
-    this.railT = null;
-    const c = POSES.cupola;
-    const p = hullToInterior(c.eye.x, c.eye.y, c.eye.z);
-    const look = hullToInterior(c.lookAt.x, c.lookAt.y, c.lookAt.z);
-    this.camera.position.set(p.x, p.y, p.z);
-    this.camera.up.set(0, 1, 0);
-    this.camera.lookAt(look.x, look.y, look.z);
-    this.camera.updateMatrixWorld(true);
+  // a named pose from hull_frame POSES: seats the player or stands them at the
+  // eye point, looking at the pose's target. The walk controller owns the
+  // camera afterwards, so the pose is a real game state, not a detached camera.
+  setPose(name) {
+    const p = POSES[name];
+    if (!p || name === 'rail') return false;
+    this.mode = 'walk'; this.railT = null;
+    const eye = hullToInterior(p.eye.x, p.eye.y, p.eye.z);
+    const look = hullToInterior(p.lookAt.x, p.lookAt.y, p.lookAt.z);
+    const d = { x: look.x - eye.x, y: look.y - eye.y, z: look.z - eye.z };
+    const yaw = Math.atan2(-d.x, -d.z), pitch = Math.atan2(d.y, Math.hypot(d.x, d.z));
+    if (p.seat) {
+      this.walk.poseSeat(p.seat);
+      this.walk.yaw = yaw; this.walk.pitch = pitch;
+      this.walk.step(0, {});
+    } else {
+      this.walk.poseStand({ x: eye.x, y: eye.y - WALK.eye, z: eye.z }, yaw, pitch);
+    }
+    return true;
   }
 
-  board() {
+  // self-tests that aim the camera themselves call this first
+  setManual() { this.mode = 'manual'; this.railT = null; }
+
+  board({ spawn = true } = {}) {
     if (this.boarded) return false;
     const stage = this.stage;
     this._prevFocus = this.getFocus();
@@ -104,13 +133,18 @@ export class InteriorRig {
     stage.insertPassAfterScene(this.pass);
     document.body.classList.add('boarded');
     this.boarded = true;
-    this.update();
+    this.mode = 'walk'; this.railT = null;
+    if (spawn) this.walk.spawn();
+    this.walk.attach(stage.renderer.domElement);
+    this.showHint(null);
+    this.update(0);
     return true;
   }
 
   leave() {
     if (!this.boarded) return false;
     const stage = this.stage;
+    this.walk.detach();
     stage.removePass(this.pass);
     stage.camera.fov = this._prevFov;
     stage.camera.updateProjectionMatrix();
@@ -133,8 +167,9 @@ export class InteriorRig {
   //   spaceCamera.up         = q * (0, 1, 0)
   // grp.position is not exactly the origin: it is ship.pos - focusPos, plus the
   // arrival fly-in offset for the first ~10 s after boot.
-  update() {
+  update(dt = 0) {
     if (!this.boarded) return;
+    if (this.mode === 'walk' && dt > 0) this.walk.update(dt);
     const q = this.shipView.quat, cam = this.stage.camera;
     this._tmp.copy(this.camera.position).multiplyScalar(M_TO_KM).add(this._anchor).applyQuaternion(q);
     cam.position.copy(this._tmp).add(this.shipView.grp.position);
