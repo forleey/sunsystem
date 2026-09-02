@@ -11,7 +11,7 @@
 // Built in HULL metres (nose +Z): a half turn about Y is hullToInterior, the
 // group scale is the km. All numbers come from hull_frame.js.
 import * as THREE from 'three';
-import { CUPOLA, CUPOLA_GLASS, HULL_GLASS_LAYER, M_TO_KM } from './hull_frame.js?v=100';
+import { CUPOLA, CUPOLA_GLASS, HULL_GLASS_LAYER, M_TO_KM } from './hull_frame.js?v=101';
 
 const FRAME = new THREE.MeshStandardMaterial({ color: 0x2a2d31, metalness: 0.8, roughness: 0.45, side: THREE.DoubleSide });
 const PANE = new THREE.MeshPhysicalMaterial({

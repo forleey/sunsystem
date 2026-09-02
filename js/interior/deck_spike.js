@@ -9,7 +9,7 @@
 // Everything is built in INTERIOR metres (hull metres mirrored in X and Z, see
 // hull_frame.js); every number comes from hull_frame.js, none from here.
 import * as THREE from 'three';
-import { ROOMS, WELL, hullToInterior } from './hull_frame.js?v=100';
+import { ROOMS, WELL, hullToInterior } from './hull_frame.js?v=101';
 
 const GREY = 0x5a5f66;   // mid grey, albedo about 0.35
 const SEGS = 48;         // hole and tube share it, so no sliver of space shows at the seam

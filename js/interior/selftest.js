@@ -3,8 +3,8 @@
 // drive the live frame loop through tick and put everything back afterwards:
 // interior pose, ship attitude, boarded state, pixel ratio.
 import * as THREE from 'three';
-import { toRender } from '../scene.js?v=100';
-import { POSES, SELFTEST, CUPOLA, hullToInterior, railPointHull } from './hull_frame.js?v=100';
+import { toRender } from '../scene.js?v=101';
+import { POSES, SELFTEST, CUPOLA, hullToInterior, railPointHull } from './hull_frame.js?v=101';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const NOSE = new THREE.Vector3(0, 0, -1);        // interior -Z is the hull nose

@@ -12,8 +12,8 @@
 // Nothing from the space scene is ever copied into the interior scene.
 import * as THREE from 'three';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, POSES, hullToInterior, railPointHull } from './hull_frame.js?v=100';
-import { buildSpikeDeck } from './deck_spike.js?v=100';
+import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, POSES, hullToInterior, railPointHull } from './hull_frame.js?v=101';
+import { buildSpikeDeck } from './deck_spike.js?v=101';
 
 const v3 = (p) => new THREE.Vector3(p.x, p.y, p.z);
 

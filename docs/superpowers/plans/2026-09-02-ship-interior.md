@@ -21,7 +21,7 @@
 - [x] **0.5 `windowTest()`.** Read back the composer's write buffer (`renderer.readRenderTargetPixels`) at the projected Earth centre and at a wall; assert as spec §11. Check: `WINDOWTEST result=PASS earthSeen=True leaks=0` from the offscreen browser eval.
 - [x] **0.6 `perf()`.** 10 s rail ride, mean and p95 at DPR 1 and 2. Check: mean ≤ 16.7 ms at DPR 2 on the MacBook Pro; if not, report before continuing.
 - [x] **0.7 Space-scene guards.** `sizeMult` forced to 1 while boarded, HUD/label/reticle writes skipped under `body.boarded`, OrbitControls stay off, `applyFocus` locked. Check: boarding with focus on Earth and sizeMult 200 still shows the correct view; leaving restores both.
-- [ ] **0.8 Acceptance.** Screenshots `docs/superpowers/shots/m0_*.png` (small, PNG, 1280 wide) and the two log lines in the commit message. Bump, deploy, live-check.
+- [x] **0.8 Acceptance.** Screenshots `docs/superpowers/shots/m0_*.png` (small, PNG, 1280 wide) and the two log lines in the commit message. Bump, deploy, live-check.
 
 ## M1 Shell and walk
 
