@@ -13,6 +13,7 @@ import { initEnvironment } from './models.js?v=100';
 import { Combat } from './combat.js?v=100';
 import { Sfx } from './sfx.js?v=100';
 import { Editor } from './editor.js?v=100';
+import { InteriorRig } from './interior/rig.js?v=100';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -64,7 +65,7 @@ const chaseQuat = new THREE.Quaternion();
 let chaseDist = 0.28;              // boot at the closest zoom stop
 let chaseEl = Math.atan2(0.32, 1);
 stage.renderer.domElement.addEventListener('wheel', e => {
-  if (focusName !== 'Starship') return;
+  if (focusName !== 'Starship' || rig.boarded) return;
   // tight zoom range (scaled to the 110 m hull): closest stop stays, zooming
   // out caps at ~+80% so the ship always fills a good chunk of the viewport
   chaseDist = Math.min(0.5, Math.max(0.28, chaseDist * Math.exp(e.deltaY * 0.001)));
@@ -82,7 +83,7 @@ stage.renderer.domElement.addEventListener('contextmenu', e => {
   if (focusName === 'Starship') e.preventDefault();
 });
 stage.renderer.domElement.addEventListener('pointerdown', e => {
-  if (focusName !== 'Starship') return;
+  if (focusName !== 'Starship' || rig.boarded) return;   // no helm from inside (M0)
   if (e.button === 2) chaseDragY = e.clientY;
   else if (e.button === 0) {
     if (editor && editor.enabled) return;   // don't grab pointer-lock while editing
@@ -93,7 +94,7 @@ stage.renderer.domElement.addEventListener('pointerdown', e => {
   }
 });
 window.addEventListener('pointermove', e => {
-  if (focusName !== 'Starship') return;
+  if (focusName !== 'Starship' || rig.boarded) return;
   if (steering) {
     const K = 0.0035;                      // rad per px, applied immediately
     steerRot.setFromAxisAngle(steerAxis.set(0, 1, 0), -e.movementX * K);
@@ -140,6 +141,9 @@ const ui = new UI(sim, (name, beam) => {
   if (beam) beamToName(name); else applyFocus(name);
 }, fleet.objects.map(o => o.name));
 editor = new Editor({ stage, system, fleet, shipView, sim, ui });
+// ship interior (V boards, Esc leaves): a second scene drawn over the space
+// render, see js/interior/rig.js. Owns the space camera while boarded.
+const rig = new InteriorRig({ stage, shipView, getFocus: () => focusName, setFocus: n => applyFocus(n, false) });
 
 function focusRadiusKm() {
   if (focusName === 'Starship') return 0.2;
@@ -214,6 +218,7 @@ ui.initLabels(anchors);
 
 // ---------- input ----------
 const keys = new Set();
+const NO_KEYS = new Set();   // handed to the helm while boarded
 const DIGITS = { Digit1: 'Sun', Digit2: 'Mercury', Digit3: 'Venus', Digit4: 'Earth', Digit5: 'Mars', Digit6: 'Jupiter', Digit7: 'Saturn', Digit8: 'Uranus', Digit9: 'Neptune', Digit0: 'Pluto' };
 
 function startAndromedaJump() {
@@ -242,11 +247,13 @@ function startHomeJump() {
 
 window.addEventListener('keydown', e => {
   if (e.target.tagName === 'SELECT') return;   // keep arrow/enter nav inside the focus dropdown
-  if (e.code === 'Escape') {                   // back to the start screen (mode select)
+  if (e.code === 'Escape') {                   // boarded: step off; else back to the start screen
+    if (rig.boarded) { rig.leave(); return; }
     if (!document.body.classList.contains('title')) showTitle();
     return;
   }
   if (document.body.classList.contains('title')) return;   // menu is up — helm keys idle
+  if (e.code === 'KeyV') { rig.toggle(); return; }         // board / leave the ship interior
   if (e.code === 'Backquote') { editor.toggle(); return; }  // ` toggles the editor
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();  // helm keys never drive UI controls
   keys.add(e.code);
@@ -340,6 +347,7 @@ window.__combat = combat; window.__sim = sim;   // TEMP debug probe: remove afte
 
 // ---------- start screen: STARBLAZER mode select ----------
 function showTitle() {
+  if (rig.boarded) rig.leave();   // never park a stale interior pass under the menu
   document.body.classList.add('title');
   if (combat.enabled) combat.setEnabled(false);
   music.setTitleActive(true);
@@ -428,8 +436,10 @@ function frameBody(now) {
 
   focusPos(fPos);
   // battle mode: combat impulse limiter, max speed (and with it thrust accel,
-  // which scales off it) is cut to 20% so dogfights stay inside the arena
-  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG * (combat.enabled ? 0.2 : 1));
+  // which scales off it) is cut to 20% so dogfights stay inside the arena.
+  // Boarded: the helm keys idle (the walk controller takes them in M1).
+  const helmKeys = rig.boarded ? NO_KEYS : keys;
+  shipView.update(fPos, stage.camera, dtWall, helmKeys, ui.state.shipG * (combat.enabled ? 0.2 : 1));
 
   // engine bed: volume is keyed to how long thrust is held, not to throttle.
   // Holding Space ramps it up over ~1.8 s; releasing fades it over ~1.1 s.
@@ -448,7 +458,11 @@ function frameBody(now) {
   fleet.place(fPos, sim.time, dtWall);
   combat.place(fPos, stage.camera);
 
-  if (focusName === 'Starship') {
+  if (rig.boarded) {
+    // interior: the rig poses the space camera from the walk camera every frame
+    controls.enabled = false;
+    rig.update();
+  } else if (focusName === 'Starship') {
     controls.enabled = false;
     if (document.body.classList.contains('title')) {
       // menu beauty shot: hug the hull (the ship is 110 m — sit ~60 m off),
@@ -486,7 +500,8 @@ function frameBody(now) {
   // there. Every write is a DOM mutation (textContent = childList), ~19 per
   // frame, and each one wakes Heddle's design bridge observer.
   const onTitle = document.body.classList.contains('title');
-  if (!onTitle) {
+  const hideUi = onTitle || rig.boarded;   // boarded hides the same set via body.boarded
+  if (!hideUi) {
     ui.updateLabels(fPos, stage.camera, focusName);
     ui.updateHUD(hudExtra());
     combat.hud(stage.camera, fPos);
@@ -495,7 +510,7 @@ function frameBody(now) {
   stage.composer.render();
 
   // flight reticle: project the nose direction onto the screen (ship view only)
-  if (focusName === 'Starship' && !onTitle) {
+  if (focusName === 'Starship' && !hideUi) {
     retV.set(0, 0, -1).applyQuaternion(shipView.quat).multiplyScalar(1e7).add(shipView.grp.position);
     retV.project(stage.camera);
     if (retV.z < 1) {
@@ -569,6 +584,7 @@ document.getElementById('b-ship').addEventListener('click', () => {
 });
 
 window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, editor, keys, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };
+window.__dbg.interior = { rig };
 console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);
@@ -582,3 +598,5 @@ if (musicWanted()) music.start();
 music.onTrackChange(music.title);
 watchCtx();
 requestAnimationFrame(frame);
+// ?board=1: skip the menu and boot straight into the interior (dev deep link)
+if (new URLSearchParams(location.search).get('board') === '1') { startGame('free'); rig.board(); }

@@ -151,6 +151,8 @@
     background:radial-gradient(ellipse at 50% 42%, rgba(4,8,16,.30) 0%, rgba(2,4,10,.78) 72%, rgba(1,2,6,.92) 100%);}
   body:not(.title) #title{display:none;}
   body.title :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#toast){display:none !important;}
+  /* boarded (ship interior): the helm UI belongs to the exterior view */
+  body.boarded :is(.panel,#hud,#labels,#reticle,#tgt,#radar,#toast,#editorToggle){display:none !important;}
   #titleInner{text-align:center; transform:translateY(-4vh); padding:0 20px;}
   /* game logo: elaborate inline-SVG chrome wordmark (markup in #title).
      No CSS filter on the SVG: WebKit renders filters on inline SVG in software,
@@ -352,6 +354,7 @@
     <tr><td>&#8679; + click label</td><td>beam ship to any station / body</td></tr>
     <tr><td>hold LMB (ship)</td><td>steer — nose follows the mouse directly</td></tr>
     <tr><td>RMB drag &#8597; / wheel</td><td>ship view: camera height / distance · planets: LMB orbit & zoom</td></tr>
+    <tr><td>V</td><td>board / leave the ship (interior)</td></tr>
     <tr><td>Esc</td><td>back to the start screen (mode select)</td></tr>
     <tr><td>R</td><td>cycle target lock (Battle Mode)</td></tr>
     <tr><td>G (hold)</td><td>laser cannons — light-speed hitscan (Battle Mode)</td></tr>

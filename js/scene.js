@@ -101,6 +101,8 @@ export function createStage(container) {
   const film = new ShaderPass(FilmLookShader);
   composer.addPass(film);
 
+  // extra cameras that must follow the viewport (the interior rig registers here)
+  const onResize = [];
   function setSize() {
     const w = window.innerWidth, h = window.innerHeight;
     camera.aspect = w / h; camera.updateProjectionMatrix();
@@ -108,6 +110,7 @@ export function createStage(container) {
     const pr = renderer.getPixelRatio();
     fxaa.material.uniforms.resolution.value.set(1 / (w * pr), 1 / (h * pr));
     film.material.uniforms.uRes.value.set(w * pr, h * pr);
+    for (const cb of onResize) cb(w, h, pr);
   }
   setSize();
   window.addEventListener('resize', setSize);
@@ -115,7 +118,16 @@ export function createStage(container) {
   // render at 1x and save 4x the pixels through all five full-screen passes
   function setPixelRatio(pr) { renderer.setPixelRatio(pr); setSize(); }
 
-  return { renderer, scene, camera, composer, bloom, film, setPixelRatio };
+  // second scene on top of the space render (ship interior): the pass goes
+  // directly behind the space RenderPass, before bloom and the grade.
+  function insertPassAfterScene(pass) {
+    if (composer.passes.indexOf(pass) < 0) composer.insertPass(pass, 1);
+  }
+  function removePass(pass) {
+    if (composer.passes.indexOf(pass) >= 0) composer.removePass(pass);
+  }
+
+  return { renderer, scene, camera, composer, bloom, film, setPixelRatio, insertPassAfterScene, removePass, onResize };
 }
 
 export function makeSky(scene) {
