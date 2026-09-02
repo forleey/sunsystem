@@ -14,6 +14,8 @@ import { Combat } from './combat.js?v=100';
 import { Sfx } from './sfx.js?v=100';
 import { Editor } from './editor.js?v=100';
 import { InteriorRig } from './interior/rig.js?v=100';
+import { addHullGlass } from './interior/hull_glass.js?v=100';
+import { createSelfTests } from './interior/selftest.js?v=100';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -22,6 +24,7 @@ initEnvironment(stage.renderer, stage.scene);
 const sim = new Sim();
 const system = new SystemView(stage.scene, sim);
 const shipView = new ShipView(stage.scene, sim);
+addHullGlass(shipView);   // exterior cupola bubble on the hull, hidden from the space camera while boarded
 const fleet = new Fleet(stage.scene, sim);
 
 // Andromeda center & approach point in the physics (ecliptic) frame
@@ -253,7 +256,8 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (document.body.classList.contains('title')) return;   // menu is up — helm keys idle
-  if (e.code === 'KeyV') { rig.toggle(); keys.clear(); return; }   // board / leave the ship interior
+  if (e.code === 'KeyV') { if (!e.repeat) rig.toggle(); keys.clear(); return; }   // board / leave the ship interior
+  if (e.code === 'KeyM') { setMusic(!musicWanted()); return; }   // music stays reachable from inside
   if (rig.boarded) { keys.clear(); return; }               // no helm, jumps, focus or beams from inside
   if (e.code === 'Backquote') { editor.toggle(); return; }  // ` toggles the editor
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();  // helm keys never drive UI controls
@@ -261,7 +265,6 @@ window.addEventListener('keydown', e => {
   if (e.code === 'KeyJ') startAndromedaJump();
   if (e.code === 'KeyH') startHomeJump();
   if (e.code === 'KeyF') applyFocus('Starship');
-  if (e.code === 'KeyM') setMusic(!musicWanted());
   if (e.code === 'KeyR') combat.cycleTarget();
   if (e.code === 'KeyT') combat.firePlayerTorpedo();
   if (e.code === 'KeyX') {
@@ -455,7 +458,9 @@ function frameBody(now) {
       shipView.grp.position.addScaledVector(arrivalDir, arrivalKm * k);
     }
   }
-  system.update(fPos, stage.camera, ui.state.sizeMult, ui.state.trails, dtWall);
+  // boarded: planets at real size whatever the slider says (design spec 4.4);
+  // the slider itself is left alone and applies again after leaving
+  system.update(fPos, stage.camera, rig.boarded ? 1 : ui.state.sizeMult, ui.state.trails, dtWall);
   fleet.place(fPos, sim.time, dtWall);
   combat.place(fPos, stage.camera);
 
@@ -584,7 +589,9 @@ document.getElementById('b-ship').addEventListener('click', () => {
   startArrival();
 });
 
-window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, editor, keys, renderTest, applyFocus, beamToName, interior: { rig }, tick: t => frameBody(t) };
+const tick = t => frameBody(t);
+const selfTests = createSelfTests({ rig, stage, sim, shipView, system, tick });   // windowTest, perf (design spec 11)
+window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, editor, keys, renderTest, applyFocus, beamToName, interior: { rig, ...selfTests }, tick };
 console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);

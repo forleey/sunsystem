@@ -4,7 +4,7 @@
 // top skin by design). Run: node tools/hull_frame_check.mjs
 import {
   ROOMS, WELL, CUPOLA, ENVELOPE, RIDGE, envelopeAt, hullToInterior, M_TO_KM,
-  DECK_ANCHOR_KM, TOP_SKIN_AT_CUPOLA, railPointHull, POSES,
+  DECK_ANCHOR_KM, TOP_SKIN_AT_CUPOLA, TOP_SKIN_AT_RING, CUPOLA_GLASS, railPointHull, POSES,
 } from '../js/interior/hull_frame.js';
 
 const EPS = 1e-6;
@@ -78,6 +78,19 @@ if (CUPOLA.ringY - TOP_SKIN_AT_CUPOLA > 0.1) fail(`cupola ring ${CUPOLA.ringY} f
 if (CUPOLA.z < RIDGE.z[0] || CUPOLA.z > RIDGE.z[1]) fail(`cupola Z ${CUPOLA.z} is off the ridge ${RIDGE.z}`);
 if (Math.abs(CUPOLA.x) + CUPOLA.radius > RIDGE.halfWidth + EPS) fail(`cupola radius ${CUPOLA.radius} does not fit the ridge half width ${RIDGE.halfWidth}`);
 if (!(WELL.topY - WELL.bottomY > 0)) fail('well has no height');
+// the exterior bubble: collar down to the lowest skin at the ring, the disc
+// above the highest skin and under the dome, panes inside the ring, seven of them
+{
+  const g = CUPOLA_GLASS;
+  if (g.collar.bottomY > TOP_SKIN_AT_RING[0] + EPS) fail(`glass collar bottom ${g.collar.bottomY} floats over the fore skin ${TOP_SKIN_AT_RING[0]}`);
+  if (!near(g.collar.topY, CUPOLA.ringY)) fail('glass collar does not end at the cupola ring');
+  if (g.collar.radius < CUPOLA.radius) fail('glass collar is narrower than the ring');
+  if (g.disc.y <= TOP_SKIN_AT_RING[1]) fail(`glass disc ${g.disc.y} is under the aft skin ${TOP_SKIN_AT_RING[1]}`);
+  if (g.disc.y >= CUPOLA.ringY + CUPOLA.height) fail('glass disc is above the dome');
+  if (g.disc.radius >= CUPOLA.radius || g.topRadius >= CUPOLA.radius) fail('glass disc or top pane does not fit inside the ring');
+  if (g.sides + 1 !== 7) fail(`cupola has ${g.sides + 1} panes, not seven`);
+  if (!(g.frameWidth > 0 && g.frameWidth < 0.2)) fail('glass frame width is off');
+}
 if (Math.abs(WELL.x - CUPOLA.x) > EPS || Math.abs(WELL.z - CUPOLA.z) > EPS) fail('well and cupola are not on the same axis');
 // the well must rise inside the hold footprint, otherwise it opens into vacuum
 if (WELL.z - WELL.radius < ROOMS.hold.z[0] || WELL.z + WELL.radius > ROOMS.hold.z[1]
@@ -103,4 +116,4 @@ if (fails.length) {
   for (const f of fails) console.error('FAIL ' + f);
   process.exit(1);
 }
-console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, ${pairs} room pairs without shared volume, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m on skin +${TOP_SKIN_AT_CUPOLA}, ${ENVELOPE.length} envelope rows`);
+console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, ${pairs} room pairs without shared volume, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m on skin +${TOP_SKIN_AT_CUPOLA}, ${ENVELOPE.length} envelope rows, glass collar ${CUPOLA_GLASS.collar.bottomY} to ${CUPOLA_GLASS.collar.topY} on skin ${TOP_SKIN_AT_RING}`);

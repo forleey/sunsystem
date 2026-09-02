@@ -49,18 +49,23 @@ export const CAMERA = { interiorFov: 68, interiorNear: 0.03, interiorFar: 120 };
 // optional spine is the higher skin over the centre line (dorsal deck, ridge,
 // canopy roof), valid for |X| <= spine.halfWidth.
 export const ENVELOPE = [
-  // flat dorsal deck at 8.2 (8.0 at |X| 6); the skin at |X| 14 is 2.0 at Z -22
-  { name: 'Dorsal deck', z: [-39, -22], halfWidth: 14, topY: 2.0, bottomY: -5.0, spine: { halfWidth: 6, topY: 8.0 } },
-  // the deck narrows into the ridge; shoulders 4.6 to 3.9 at |X| 6, skin at |X| 12 is 1.18 at Z -10
-  { name: 'Ridge', z: [-22, -10], halfWidth: 12, topY: 1.18, bottomY: -4.2, spine: { halfWidth: 6, topY: 3.9 } },
-  // shoulders under the spine: skin at |X| 11 is 1.20 at Z -6, 0.63 at |X| 12
-  { name: 'Shoulders', z: [-10, -6], halfWidth: 11, topY: 1.2, bottomY: -4.3, spine: { halfWidth: 5, topY: 4.3 } },
+  // flat dorsal deck at 8.2 (8.0 at |X| 6); the skin at |X| 14 is 2.0 at Z -22.
+  // Bottom read outboard: -4.74 at |X| 14 Z -22.25 (the centre line is -5.0)
+  { name: 'Dorsal deck', z: [-39, -22], halfWidth: 14, topY: 2.0, bottomY: -4.7, spine: { halfWidth: 6, topY: 8.0 } },
+  // the flanks beside the crest: the deck narrows into the ridge, shoulders
+  // 4.6 to 3.9 at |X| 6, skin at |X| 12 is 1.18 at Z -10. The crest itself
+  // (8 m wide, 8.2 falling to 7.6) is the separate RIDGE below.
+  { name: 'Ridge flanks', z: [-22, -10], halfWidth: 12, topY: 1.18, bottomY: -4.2, spine: { halfWidth: 6, topY: 3.9 } },
+  // shoulders under the spine: skin at |X| 11 is 1.20 at Z -6, 0.63 at |X| 12;
+  // the spine is 4.26 at |X| 5 Z -9.75
+  { name: 'Shoulders', z: [-10, -6], halfWidth: 11, topY: 1.2, bottomY: -4.3, spine: { halfWidth: 5, topY: 4.2 } },
   // the spine falls from 7.1 to 4.9 over the tunnel; |X| 5 stays above 3.1
   { name: 'Fore body', z: [-6, 10], halfWidth: 5, topY: 3.1, bottomY: -5.0, spine: { halfWidth: 2.5, topY: 4.6 } },
-  // cockpit station: |X| 2.5 falls from 4.61 to 2.57, |X| 5 from 3.15 to 1.00
-  { name: 'Nose (cockpit)', z: [10, 18], taper: true, halfWidth: 5, topY: [3.1, 1.0], bottomY: [-7.2, -6.3], spine: { halfWidth: 2.5, topY: [4.6, 2.5] } },
-  // beyond the canopy only fins are left; the tip is at Z 45
-  { name: 'Nose (tip)', z: [18, 36], taper: true, halfWidth: [5, 2], topY: [1.0, -1.5], bottomY: [-6.3, -2.4] },
+  // cockpit station: |X| 2.5 falls from 4.61 to 2.57, |X| 5 from 3.15 to 1.00.
+  // Bottom rises outboard (-4.80 at |X| 5 Z 17.75 against -6.3 on the axis)
+  { name: 'Nose (cockpit)', z: [10, 18], taper: true, halfWidth: 5, topY: [3.1, 1.0], bottomY: -4.8, spine: { halfWidth: 2.5, topY: [4.6, 2.5] } },
+  // beyond the canopy only fins are left; the tip is at Z 45 (-4.95 at |X| 5 Z 18)
+  { name: 'Nose (tip)', z: [18, 36], taper: true, halfWidth: [5, 2], topY: [1.0, -1.5], bottomY: [-4.8, -2.4] },
 ];
 // The wing (Z -41 to -20, out to |X| 54, top 7.7 at |X| 10 aft of Z -24 and
 // 3.5 forward of it) carries no deck and is not in the table.
@@ -127,6 +132,20 @@ export const CUPOLA = {
   seatY: 8.55,                 // 0.45 over the well platform
   eyeY: 9.3,                   // seated eye, 1.2 m above the skin
 };
+// exterior bubble (hull_glass.js): one hexagonal top pane over six trapezoid
+// side panes (seven, spec 7.3), 8 cm anodised frames, an open collar that
+// seats the ring on the skin all round (the skin at the 1.6 m ring runs from
+// 7.97 fore to 8.14 aft, TOP_SKIN_AT_RING), and a warm emissive disc inside
+// the bubble, above the highest skin, so the lit cupola reads from the chase
+// cam on the night side.
+export const TOP_SKIN_AT_RING = [7.97, 8.14];   // [fore, aft] at radius 1.6 around the ring
+export const CUPOLA_GLASS = {
+  sides: 6,                    // side panes; plus the top pane = 7
+  topRadius: 0.9,              // the hexagonal top pane
+  frameWidth: 0.08,
+  collar: { radius: 1.65, bottomY: 7.9, topY: CUPOLA.ringY },
+  disc: { radius: 1.5, y: CUPOLA.ringY + 0.06 },
+};
 export const WELL = {
   x: CUPOLA.x, z: CUPOLA.z,
   bottomY: ROOMS.hold.ceilY,   // 3.0, the hold ceiling
@@ -138,6 +157,15 @@ export const CANOPY = {
   x: [ROOMS.cockpit.x[0], ROOMS.cockpit.x[1]],
   sillY: 2.2,
   panes: 5,
+};
+
+// ---------- self-test thresholds (spec section 11, selftest.js) ----------
+// Luminances are display-encoded (the composite after the OutputPass), 0..1.
+export const SELFTEST = {
+  block: 9,          // n x n pixel block averaged at a test point
+  earthLum: 0.08,    // Earth-seen: block mean above this at the centre or the lit point
+  litOffset: 0.6,    // the lit point sits this many Earth radii from the centre toward the sun
+  skyLum: 0.01,      // leak: a pixel of the wall frame darker than this is space
 };
 
 // ---------- debug camera poses (task 0.3), hull frame ----------
