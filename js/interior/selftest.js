@@ -3,8 +3,8 @@
 // drive the live frame loop through tick and put everything back afterwards:
 // interior pose, ship attitude, boarded state, pixel ratio.
 import * as THREE from 'three';
-import { toRender } from '../scene.js?v=102';
-import { POSES, SELFTEST, CUPOLA, ROOMS, LADDER, hullToInterior, railPointHull } from './hull_frame.js?v=102';
+import { toRender } from '../scene.js?v=103';
+import { POSES, SELFTEST, CUPOLA, ROOMS, LADDER, hullToInterior, railPointHull } from './hull_frame.js?v=103';
 
 const UP = new THREE.Vector3(0, 1, 0);
 const NOSE = new THREE.Vector3(0, 0, -1);        // interior -Z is the hull nose
@@ -97,19 +97,26 @@ export function createSelfTests({ rig, stage, sim, shipView, tick }) {
     aim({ x: rp.x, y: rp.y, z: rp.z }, new THREE.Vector3(-1, 0, 0), UP);
     tick(performance.now());
     fr = readFrame();
-    let leaks = 0, wallMin = 1;
+    // M2: no wall or floor pixel may reach the bloom threshold. The lamps hang
+    // under the ceiling and bloom on purpose, so the count takes the lower
+    // bloomBand of the frame (floor, wall, the hold's far side); row 0 is the bottom.
+    const bloomRows = Math.floor(fr.h * SELFTEST.bloomBand);
+    let leaks = 0, wallMin = 1, wallMax = 0, wallBloom = 0, lx = 0, ly = 0;
+    const grid = Array.from({ length: 5 }, () => new Array(8).fill(0));   // leak counts per frame cell, row 0 at the bottom
     for (let y = 0; y < fr.h; y++) for (let x = 0; x < fr.w; x++) {
       const l = fr.lum(x, y);
-      if (l < SELFTEST.skyLum) leaks++;
+      if (l < SELFTEST.skyLum) { leaks++; lx += x; ly += y; grid[Math.floor(y * 5 / fr.h)][Math.floor(x * 8 / fr.w)]++; }
+      if (y < bloomRows && l > SELFTEST.bloomLum) wallBloom++;
       if (l < wallMin) wallMin = l;
+      if (l > wallMax) wallMax = l;
     }
     restore(prev);
-    const pass = earthSeen && leaks === 0;
+    const pass = earthSeen && leaks === 0 && wallBloom === 0;
     const r = {
-      pass, earthSeen, leaks, centreLum: +f3(centre.lum), litLum: +f3(lit.lum), skyLum: +f3(sky.lum),
-      wallMin: +f3(wallMin), earthNdc: centre.ndc, pixels: fr.w * fr.h, cupolaZ: CUPOLA.z,
+      pass, earthSeen, leaks, wallBloom, centreLum: +f3(centre.lum), litLum: +f3(lit.lum), skyLum: +f3(sky.lum),
+      wallMin: +f3(wallMin), wallMax: +f3(wallMax), leakAt: leaks ? [+(lx / leaks / fr.w).toFixed(3), +(ly / leaks / fr.h).toFixed(3)] : null, leakGrid: leaks ? grid : null, earthNdc: centre.ndc, pixels: fr.w * fr.h, cupolaZ: CUPOLA.z,
     };
-    console.log(`WINDOWTEST result=${pass ? 'PASS' : 'FAIL'} earthSeen=${py(earthSeen)} leaks=${leaks} centre=${f3(centre.lum)} lit=${f3(lit.lum)} sky=${f3(sky.lum)} wallMin=${f3(wallMin)} ndc=${centre.ndc}`);
+    console.log(`WINDOWTEST result=${pass ? 'PASS' : 'FAIL'} earthSeen=${py(earthSeen)} leaks=${leaks} wallBloom=${wallBloom} centre=${f3(centre.lum)} lit=${f3(lit.lum)} sky=${f3(sky.lum)} wall=${f3(wallMin)}..${f3(wallMax)} ndc=${centre.ndc}`);
     return r;
   }
 

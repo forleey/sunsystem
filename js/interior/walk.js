@@ -7,7 +7,7 @@
 // step(dt, input) is the seam the self-test drives without DOM events:
 //   input = { fwd, side, dyaw, dpitch, use }   (fwd/side in -1..1, angles in rad)
 import * as THREE from 'three';
-import { WALK, LADDER } from './hull_frame.js?v=102';
+import { WALK, LADDER } from './hull_frame.js?v=103';
 
 const HALF = WALK.radius;
 const EPS = 1e-4;

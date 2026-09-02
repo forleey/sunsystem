@@ -17,9 +17,12 @@
 //   manual  whoever set it last (self-tests aim it themselves)
 import * as THREE from 'three';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, POSES, WALK, hullToInterior, railPointHull } from './hull_frame.js?v=102';
-import { buildDeck } from './deck.js?v=102';
-import { Walk } from './walk.js?v=102';
+import { CAMERA, DECK_ANCHOR_KM, HULL_GLASS_LAYER, M_TO_KM, POSES, WALK, hullToInterior, railPointHull } from './hull_frame.js?v=103';
+import { buildDeck } from './deck.js?v=103';
+import { Walk } from './walk.js?v=103';
+import { InteriorLighting } from './lighting.js?v=103';
+import { buildSwatchStrip, setTexturesWanted } from './trim.js?v=103';
+import { toRender } from '../scene.js?v=103';
 
 const v3 = (p) => new THREE.Vector3(p.x, p.y, p.z);
 const DEFAULT_HINT = 'WASD walk · mouse look · E use · V leave';
@@ -27,9 +30,10 @@ const DEFAULT_HINT = 'WASD walk · mouse look · E use · V leave';
 export class InteriorRig {
   // getFocus/setFocus reach into main.js's focusName; stage owns the composer;
   // hintEl is the one-line prompt bar shown while boarded
-  constructor({ stage, shipView, getFocus, setFocus, hintEl = null }) {
+  constructor({ stage, shipView, sim, getFocus, setFocus, hintEl = null }) {
     this.stage = stage;
     this.shipView = shipView;
+    this.sim = sim;
     this.getFocus = getFocus;
     this.setFocus = setFocus;
     this.hintEl = hintEl;
@@ -48,7 +52,11 @@ export class InteriorRig {
     // hull glass is visible from outside and switched off while boarded
     stage.camera.layers.enable(HULL_GLASS_LAYER);
 
+    const q = new URLSearchParams(location.search);
+    if (q.get('trim') === '0') setTexturesWanted(false);   // tints and shading alone, no sheets
     this.deck = buildDeck(this.scene);
+    this.lighting = new InteriorLighting({ scene: this.scene, renderer: stage.renderer });
+    if (q.get('pose') === 'swatch') this.scene.add(buildSwatchStrip());
     this.walk = new Walk({ deck: this.deck, camera: this.camera, hint: (t) => this.showHint(t) });
     this.mode = 'walk';
     this.railT = null;
@@ -68,9 +76,17 @@ export class InteriorRig {
 
   // ?pose=<name> puts the camera at a fixed pose after boarding (screenshots):
   // rail (with &t=0..1), cupola, cockpit, hold, corridor, tunnel, bunks,
-  // engineering, airlock. Returns true when the URL named a pose.
+  // engineering, airlock, swatch. ?sun=<alt>,<az> (degrees) turns the ship so
+  // the real sun stands at that altitude over the cupola ring plane and
+  // azimuth around the well (0 = toward the nose, 90 = starboard).
+  // Returns true when the URL named a pose.
   applyUrlPose() {
     const q = new URLSearchParams(location.search);
+    const sun = q.get('sun');
+    if (sun) {
+      const [alt, az] = sun.split(',').map(Number);
+      if (Number.isFinite(alt)) this.setSun(alt * Math.PI / 180, (Number.isFinite(az) ? az : 0) * Math.PI / 180);
+    }
     const pose = q.get('pose');
     if (!pose) return false;
     if (pose === 'rail') {
@@ -119,6 +135,19 @@ export class InteriorRig {
 
   // self-tests that aim the camera themselves call this first
   setManual() { this.mode = 'manual'; this.railT = null; }
+
+  // turn the ship so the sun stands at (alt, az) in the interior frame: the
+  // attitude q maps interior directions onto render directions, so q takes
+  // the wanted interior sun direction onto the real one. Stops any spin.
+  setSun(alt, az) {
+    const ship = this.sim.ship, sun = this.sim.bodies[0];
+    const real = toRender(new THREE.Vector3(sun.pos.x - ship.pos.x, sun.pos.y - ship.pos.y, sun.pos.z - ship.pos.z), new THREE.Vector3()).normalize();
+    // interior: nose is -Z, starboard +X (hull frame mirrored in X and Z)
+    const want = new THREE.Vector3(-Math.sin(az) * Math.cos(alt), Math.sin(alt), -Math.cos(az) * Math.cos(alt));
+    this.shipView.quat.setFromUnitVectors(want, real);
+    this.shipView.angVel.set(0, 0, 0);
+    this.update(0);
+  }
 
   board({ spawn = true } = {}) {
     if (this.boarded) return false;
@@ -170,6 +199,7 @@ export class InteriorRig {
   update(dt = 0) {
     if (!this.boarded) return;
     if (this.mode === 'walk' && dt > 0) this.walk.update(dt);
+    this.lighting.update({ sim: this.sim, shipView: this.shipView, eye: this.camera.position });
     const q = this.shipView.quat, cam = this.stage.camera;
     this._tmp.copy(this.camera.position).multiplyScalar(M_TO_KM).add(this._anchor).applyQuaternion(q);
     cam.position.copy(this._tmp).add(this.shipView.grp.position);

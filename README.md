@@ -79,5 +79,8 @@ Ship and station models are open-source assets, optimized with gltf-transform (m
 | ISS | ISS (D), [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) | NASA | Public domain |
 | Lunar Gateway | Gateway Core, [NASA 3D Resources](https://github.com/nasa/NASA-3D-Resources) | NASA | Public domain |
 | Shuttle Galileo | [Space Shuttle Discovery scan](https://3d.si.edu/object/3d/orbiter-space-shuttle-ov-103-discovery:d8c636ce-4ebc-11ea-b77f-2e728ce88125) | Smithsonian Institution | CC0 |
+| Ship interior props (pipes, cables, air duct, power box, spacecraft instrument, multimeter, hanging lamp, caged sconce, fluorescent lights, ceiling fan, military crate, plastic crate, ammo box, stool, generator) | [Poly Haven models](https://polyhaven.com/models) | Poly Haven contributors | CC0 |
+| Ship interior surfaces (metal_plate, blue_metal_plate, painted_metal_shutter, rubber_tiles, metal_grate_rusty) | [Poly Haven textures](https://polyhaven.com/textures) | Poly Haven contributors | CC0 |
+| Ship interior surfaces (MetalPlates015A, Metal027, DiamondPlate008C, MetalWalkway006, Metal046B) | [ambientCG](https://ambientcg.com) | Lennart Demes | CC0 |
 
 The large Star Trek-style stations (Spacedock One, Utopia Planitia, Jove Gateway, Cronos Station) remain procedural meshes. NASA/Smithsonian usage does not imply endorsement.

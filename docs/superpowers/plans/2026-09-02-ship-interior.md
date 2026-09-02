@@ -34,14 +34,14 @@
 
 ## M2 Surfaces and light
 
-- [ ] **2.1 `tools/interior_assets.sh`.** Fetch the Poly Haven and ambientCG sets of spec §8, simplify props with `gltf-transform` (per-prop budget), resize to 1K, WebP, meshopt, write `models_src/interior/` and `textures/interior/`, upload to R2 (`models/interior/`, `textures/interior/`), and append rows to `README.md` credits. Check: script idempotent; every URL 200; total under 25 MB.
-- [ ] **2.2 `trim.js`.** Material factory with grime mask and per-room tint; surface sets: panel, rib, floor grating, tread plate, rubber, black powder-coat, greasy dark. Check: `?pose=swatch` renders a swatch strip; screenshot.
-- [ ] **2.3 `HARD_TERMINATOR` opt-out.** Rewrite `hardenDirectLighting()` to guard the patch with `#ifdef HARD_TERMINATOR`; set the define on ship and station materials in `playerPaint`/`paintStation`. Check: chase-cam screenshot identical to before (pixel diff under 1 %); interior swatch shows a soft terminator.
-- [ ] **2.4 Apply surfaces.** Corridor, hold, cockpit, bunks, engineering, airlock. Check: screenshot set; `windowTest()` extended with `wallBloom=0` (no wall pixel above the bloom threshold).
-- [ ] **2.5 Cupola panes and frames.** Seven `MeshPhysicalMaterial` panes with scratch and dust normal map, anodised frames, handrail ring, ladder and platform. Check: screenshots from the seat, `sun=ahead` and `sun=behind`.
-- [ ] **2.6 `lighting.js`.** `CupolaSun` (direction from `sim`, visibility factor, 6 × 6 m shadow frustum, 1024² map), earthshine, practicals with halo sprites, `RoomEnvironment` PMREM at 0.35, ambient. Check: a scripted 360° roll moves the frame shadows down the well (three screenshots); ≤ 8 point lights.
-- [ ] **2.7 Perf gate.** `perf()` at DPR 2. Check: mean ≤ 16.7 ms.
-- [ ] **2.8 Acceptance.** Screenshot set `m2_*.png`; bump, deploy, live-check.
+- [x] **2.1 `tools/interior_assets.sh`.** Fetch the Poly Haven and ambientCG sets of spec §8, simplify props with `gltf-transform` (per-prop budget), resize to 1K, WebP, meshopt, write `models_src/interior/` and `textures/interior/`, upload to R2 (`models/interior/`, `textures/interior/`), and append rows to `README.md` credits. Check: script idempotent; every URL 200; total under 25 MB.
+- [x] **2.2 `trim.js`.** Material factory with grime mask and per-room tint; surface sets: panel, rib, floor grating, tread plate, rubber, black powder-coat, greasy dark. Check: `?pose=swatch` renders a swatch strip; screenshot.
+- [x] **2.3 `SOFT_TERMINATOR` opt-out.** `hardenDirectLighting()` guards the patch with `#ifndef SOFT_TERMINATOR`; interior materials (trim.js) set that define, every space-scene material keeps the hard band untouched (the plan first said an opt-in `HARD_TERMINATOR` on ship and station materials; the opt-out needs no change to `playerPaint`/`paintStation` and cannot miss a material). Check: space-scene shader source unchanged for materials without the define; interior swatch shows a soft terminator.
+- [x] **2.4 Apply surfaces.** Corridor, hold, cockpit, bunks, engineering, airlock. Check: screenshot set; `windowTest()` extended with `wallBloom=0` (no wall pixel above the bloom threshold).
+- [x] **2.5 Cupola panes and frames.** Seven `MeshPhysicalMaterial` panes with scratch and dust normal map, anodised frames, handrail ring, ladder and platform. Check: screenshots from the seat, `sun=ahead` and `sun=behind`.
+- [x] **2.6 `lighting.js`.** `CupolaSun` (direction from `sim`, visibility factor, 6 × 6 m shadow frustum, 1024² map), earthshine, practicals with halo sprites, `RoomEnvironment` PMREM at 0.35, ambient. Check: a scripted 360° roll moves the frame shadows down the well (three screenshots); ≤ 8 point lights.
+- [x] **2.7 Perf gate.** `perf()` at DPR 2. Check: mean ≤ 16.7 ms.
+- [x] **2.8 Acceptance.** Screenshot set `m2_*.png`; bump, deploy, live-check (v103).
 
 ## M3 Cockpit and hold
 

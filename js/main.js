@@ -1,21 +1,21 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { createStage, makeSky } from './scene.js?v=102';
-import { Sim, V3 } from './physics.js?v=102';
-import { SystemView } from './bodies3d.js?v=102';
-import { ShipView } from './ship3d.js?v=102';
-import { UI } from './ui.js?v=102';
-import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=102';
-import { Fleet } from './fleet.js?v=102';
-import { Music, renderTest } from './music.js?v=102';
-import { armShine } from './shine.js?v=102';
-import { initEnvironment } from './models.js?v=102';
-import { Combat } from './combat.js?v=102';
-import { Sfx } from './sfx.js?v=102';
-import { Editor } from './editor.js?v=102';
-import { InteriorRig } from './interior/rig.js?v=102';
-import { addHullGlass } from './interior/hull_glass.js?v=102';
-import { createSelfTests } from './interior/selftest.js?v=102';
+import { createStage, makeSky } from './scene.js?v=103';
+import { Sim, V3 } from './physics.js?v=103';
+import { SystemView } from './bodies3d.js?v=103';
+import { ShipView } from './ship3d.js?v=103';
+import { UI } from './ui.js?v=103';
+import { ANDROMEDA, SHIP, G_ACC, fmtKm } from './data.js?v=103';
+import { Fleet } from './fleet.js?v=103';
+import { Music, renderTest } from './music.js?v=103';
+import { armShine } from './shine.js?v=103';
+import { initEnvironment } from './models.js?v=103';
+import { Combat } from './combat.js?v=103';
+import { Sfx } from './sfx.js?v=103';
+import { Editor } from './editor.js?v=103';
+import { InteriorRig } from './interior/rig.js?v=103';
+import { addHullGlass } from './interior/hull_glass.js?v=103';
+import { createSelfTests } from './interior/selftest.js?v=103';
 
 const stage = createStage(document.getElementById('app'));
 const sky = makeSky(stage.scene);
@@ -146,7 +146,7 @@ const ui = new UI(sim, (name, beam) => {
 editor = new Editor({ stage, system, fleet, shipView, sim, ui });
 // ship interior (V boards, Esc leaves): a second scene drawn over the space
 // render, see js/interior/rig.js. Owns the space camera while boarded.
-const rig = new InteriorRig({ stage, shipView, getFocus: () => focusName, setFocus: n => applyFocus(n, false), hintEl: document.getElementById('hint') });
+const rig = new InteriorRig({ stage, shipView, sim, getFocus: () => focusName, setFocus: n => applyFocus(n, false), hintEl: document.getElementById('hint') });
 
 function focusRadiusKm() {
   if (focusName === 'Starship') return 0.2;

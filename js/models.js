@@ -13,12 +13,16 @@ export const ASSET_BASE = 'https://pub-71534651969246d597a0c1bf543eff8c.r2.dev';
 // every MeshStandardMaterial so lit faces snap to shadow in a ~13° band
 // instead of the soft cosine roll-off. Planets use custom shaders (untouched).
 // Must run before the first render (materials bake the chunk on compile).
+// Opt-out: a material with defines.SOFT_TERMINATOR keeps the plain cosine
+// (the ship interior, js/interior/trim.js). The default stays hard, so every
+// space-scene material renders exactly as before.
+export const SOFT_TERMINATOR = 'SOFT_TERMINATOR';
 function hardenDirectLighting() {
   const key = 'float dotNL = saturate( dot( geometryNormal, directLight.direction ) );';
   const chunk = THREE.ShaderChunk.lights_physical_pars_fragment;
   if (chunk.includes(key)) {
     THREE.ShaderChunk.lights_physical_pars_fragment = chunk.replace(key,
-      key + '\n\tdotNL = smoothstep( 0.0, 0.14, dotNL ) * ( 0.6 + 0.4 * dotNL );');
+      key + '\n\t#ifndef SOFT_TERMINATOR\n\tdotNL = smoothstep( 0.0, 0.14, dotNL ) * ( 0.6 + 0.4 * dotNL );\n\t#endif');
   } else {
     console.warn('hardenDirectLighting: chunk signature not found — soft shading stays');
   }

@@ -170,6 +170,8 @@ export const SELFTEST = {
   earthLum: 0.08,    // Earth-seen: block mean above this at the centre or the lit point
   litOffset: 0.6,    // the lit point sits this many Earth radii from the centre toward the sun
   skyLum: 0.01,      // leak: a pixel of the wall frame darker than this is space
+  bloomLum: 0.87,    // wallBloom: a wall pixel brighter than this (display-encoded) would bloom
+  bloomBand: 0.55,   // wallBloom counts only this lower share of the frame (the lamps above bloom on purpose)
 };
 
 // ---------- walking (spec section 9), metres and seconds ----------
@@ -260,6 +262,90 @@ export function doorways(rooms = ROOMS) {
   return out;
 }
 
+// ---------- hull occluder (deck.js), hull frame ----------
+// The interior pass draws the deck over the space image with a fresh depth
+// buffer, so from the cupola every slab under the skin would stand over the
+// real hull. A depth-only body (colorWrite false) shaped like the hull's plan
+// outline, from under the keel to just under the ridge skin, hides everything
+// inside it without touching a colour; the well is a hole in its top, a hair
+// wider than the tube so the tube wins the depth test from inside. Nothing
+// interior may live above topY except the cupola (ring 8.1 and up).
+export const OCCLUDER = { topY: 7.9, bottomY: -6.5, holeRadius: WELL.radius + 0.03 };
+// plan outline of the pressure hull as [x, z] pairs, starboard first, from
+// the envelope rows (generous: the larger half width where a row tapers)
+export function hullOutline() {
+  const rows = [...ENVELOPE].sort((a, b) => a.z[0] - b.z[0]);
+  const hw = (v, t) => (Array.isArray(v) ? v[0] + (v[1] - v[0]) * t : v);
+  const stbd = [];
+  for (const r of rows) { stbd.push([hw(r.halfWidth, 0), r.z[0]]); stbd.push([hw(r.halfWidth, 1), r.z[1]]); }
+  const port = stbd.map(([x, z]) => [-x, z]).reverse();
+  const pts = [...stbd, ...port];
+  return pts.filter((p, i) => i === 0 || Math.abs(p[0] - pts[i - 1][0]) > 1e-9 || Math.abs(p[1] - pts[i - 1][1]) > 1e-9);
+}
+
+// ---------- cupola interior (spec 7.3), hull frame ----------
+// The seven panes seen from the seat: a hexagonal top pane at the dome top,
+// six trapezoids from the ring hexagon up to it, 8 cm frames on every edge.
+// Panes are additive glass (deck.js), never transmission: three's transmission
+// pass renders the interior scene alone into a texture and would put a black
+// sky behind the glass (the space image lives in the composer, not the scene).
+export const CUPOLA_INTERIOR = {
+  paneRoughness: 0.05,
+  scratchStrength: 0.06,       // normal map strength of the generated scratch map
+  frameWidth: CUPOLA_GLASS.frameWidth,
+  topRadius: CUPOLA_GLASS.topRadius,
+  handrail: { y: CUPOLA.platformY + 1.0, radius: 0.8, tube: 0.02, gap: 70 * Math.PI / 180 },   // gap toward the ladder
+  platform: { y: CUPOLA.platformY, thickness: 0.04, ladderGap: { width: 0.6, depth: 0.75 } },
+};
+
+// ---------- lighting (spec 6), hull frame ----------
+// Exactly LIGHTING.pointLights PointLights exist in the interior scene; every
+// frame they take the positions and colours of the nearest practicals of the
+// table below, so the shader never recompiles and every room stays lit.
+export const LIGHTING = {
+  sun: {
+    intensity: 3.0,
+    horizonBlend: 15 * Math.PI / 180,      // visibility fades over this angle around the ring plane
+    shadow: { size: 6, mapSize: 1024, distance: 12, near: 0.5, far: 30 },
+  },
+  earthshine: { color: 0x8fa8c8, max: 0.25, fullAt: 25 * Math.PI / 180 },   // capped when the Earth's angular radius reaches fullAt
+  ambient: { color: 0x1a2028, intensity: 0.15 },
+  environmentIntensity: 0.35,
+  glassEnv: 0.06,                           // the cupola panes reflect the environment at this intensity (0.05 measured 0.017 of sky wash, 0.35 would be 0.09)
+  pointLights: 8,
+  halo: 0.55,                               // sprite size in metres
+  practicals: [
+    // hold: two amber caged lamps and a white strip by the fore passage
+    { x: -3.5, y: 2.7, z: -20, color: 0xffb46a, intensity: 30, distance: 18, kind: 'cage' },
+    { x: 3.5, y: 2.7, z: -20, color: 0xffb46a, intensity: 30, distance: 18, kind: 'cage' },
+    { x: 0, y: 2.8, z: -15.5, color: 0xe8eef5, intensity: 18, distance: 14, kind: 'strip' },
+    // engineering: white work light and the red standby lamp
+    { x: 0, y: 3.7, z: -32, color: 0xdde6ee, intensity: 30, distance: 20, kind: 'strip' },
+    { x: 3.8, y: 2.5, z: -37.5, color: 0xff3b2a, intensity: 10, distance: 9, kind: 'cage' },
+    // ring corridor: strips under the ceiling
+    { x: -7, y: 0.9, z: -11.2, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    { x: 0, y: 0.9, z: -11.2, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    { x: 7, y: 0.9, z: -11.2, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    { x: -7, y: 0.9, z: -28.8, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    { x: 0, y: 0.9, z: -28.8, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    { x: 7, y: 0.9, z: -28.8, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    { x: -10.8, y: 0.9, z: -20, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    { x: 10.8, y: 0.9, z: -20, color: 0xdfe8f0, intensity: 14, distance: 12, kind: 'strip' },
+    // cockpit tunnel
+    { x: 0, y: 1.0, z: -5, color: 0xdfe8f0, intensity: 12, distance: 10, kind: 'strip' },
+    { x: 0, y: 1.0, z: 2, color: 0xdfe8f0, intensity: 12, distance: 10, kind: 'strip' },
+    { x: 0, y: 1.0, z: 8, color: 0xdfe8f0, intensity: 12, distance: 10, kind: 'strip' },
+    // cockpit: blue-white console glow; bunks: amber; airlock: white
+    { x: 0, y: 1.9, z: 14, color: 0xa8d0ff, intensity: 18, distance: 12, kind: 'strip' },
+    { x: 9, y: 0.9, z: -8, color: 0xffb46a, intensity: 12, distance: 9, kind: 'cage' },
+    { x: -9.5, y: 0.9, z: -8.5, color: 0xdfe8f0, intensity: 10, distance: 8, kind: 'strip' },
+  ],
+};
+
+// ---------- swatch strip (trim.js, ?pose=swatch), hull frame ----------
+// one panel per surface set along the hold's port wall, for the eye
+export const SWATCH = { x: -5.6, z0: -25, y: 0.4, size: 1.0, gap: 0.2 };
+
 // ---------- camera poses (screenshots, self-tests), hull frame ----------
 // Standing poses put the eye WALK.eye over the room floor. rail is the perf
 // ride under the well; cupola and cockpit are the two seats.
@@ -278,6 +364,7 @@ export const POSES = {
   bunks: standing(9, -9.6, 'bunks', { x: 9, y: 0, z: -6 }),
   engineering: standing(0, -30.6, 'engineering', { x: 0, y: 1.0, z: -35 }),
   airlock: standing(-9.5, -9.4, 'airlock', { x: -11, y: 0, z: -8.5 }),
+  swatch: standing(-3.2, -20.5, 'hold', { x: SWATCH.x, y: SWATCH.y + 0.5, z: -20.5 }),
 };
 export function railPointHull(t) {
   const k = Math.max(0, Math.min(1, t)), r = POSES.rail;

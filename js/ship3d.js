@@ -1,9 +1,9 @@
 // Constitution-class-ish starship from primitives + helm input. Render axes; forward = -Z.
 // An open-source GLB (R2-hosted) swaps over the primitives once loaded.
 import * as THREE from 'three';
-import { toRender } from './scene.js?v=102';
-import { C_KMS } from './data.js?v=102';
-import { loadModel } from './models.js?v=102';
+import { toRender } from './scene.js?v=103';
+import { C_KMS } from './data.js?v=103';
+import { loadModel } from './models.js?v=103';
 
 export function fromRender(v, out) { return out.set(v.x, -v.z, v.y); }
 
@@ -13,7 +13,7 @@ const DARK = new THREE.MeshStandardMaterial({ color: 0x6b7480, metalness: 0.6, r
 // soft radial glow for the additive engine sprites. Per-pixel Gaussian that
 // hits exactly zero at the disc edge (and the quad corners), so the additive
 // blob can never show a square boundary or bloom into a box.
-const GLOW_TEX = (() => {
+export const GLOW_TEX = (() => {
   const N = 128, c = document.createElement('canvas'); c.width = c.height = N;
   const x = c.getContext('2d'), img = x.createImageData(N, N), d = img.data;
   for (let yy = 0; yy < N; yy++) for (let xx = 0; xx < N; xx++) {
