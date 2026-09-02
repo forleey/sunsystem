@@ -5,8 +5,9 @@
 // clearDepth = true. The deck lands on top of the space image, and wherever the
 // deck has no geometry (a window, the open top of the cupola well) the space
 // image stays. Depth is cleared between them, so the metre scene and the
-// kilometre scene never share a depth buffer. Bloom, output, FXAA and the film
-// look then run once over the combined image.
+// kilometre scene never share a depth buffer (why the pass must sit directly
+// behind the space pass: see insertPassAfterScene in scene.js). Bloom, output,
+// FXAA and the film look then run once over the combined image.
 //
 // Nothing from the space scene is ever copied into the interior scene.
 import * as THREE from 'three';
@@ -30,15 +31,9 @@ export class InteriorRig {
       CAMERA.interiorFov, window.innerWidth / window.innerHeight,
       CAMERA.interiorNear, CAMERA.interiorFar
     );
-    this.scene.add(this.camera);
     this.pass = new RenderPass(this.scene, this.camera);
     this.pass.clear = false;                 // keep the space image
     this.pass.clearDepth = true;             // but start the deck on a fresh depth buffer
-    // three 0.170's RenderPass calls renderer.clearDepth() BEFORE
-    // setRenderTarget(readBuffer), so it clears whatever target is bound at
-    // that moment. That is readBuffer only because this pass sits at index 1,
-    // directly behind the space pass, which renders into readBuffer and leaves
-    // it bound (needsSwap is false). Nothing may ever be inserted between them.
 
     stage.onResize.push((w, h) => { this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); });
     // hull glass is visible from outside and switched off while boarded
@@ -50,14 +45,14 @@ export class InteriorRig {
     this._anchor = v3(DECK_ANCHOR_KM);
     this._tmp = new THREE.Vector3();
     this._prevFocus = null;
-    this._prevFov = CAMERA.spaceFovDefault;
+    this._prevFov = stage.camera.fov;
     this._prevMask = stage.camera.layers.mask;
 
     if (!this.applyUrlPose()) this.setRail(0.5);   // the spike has no walk mode yet
   }
 
   // ?pose=rail&t=0..1 puts the interior camera on the debug rail at boot,
-  // ?pose=cupola at the cupola seat looking aft at the engine humps.
+  // ?pose=cupola at the cupola seat looking aft and down onto the dorsal deck.
   // Returns true when the URL named a pose.
   applyUrlPose() {
     const q = new URLSearchParams(location.search);
@@ -83,8 +78,8 @@ export class InteriorRig {
     return this.railT;
   }
 
-  // debug pose: seated eye point in the cupola, looking aft and slightly down
-  // at the engine humps of the hull GLB (the space scene shows them)
+  // debug pose: seated eye point in the cupola, looking aft and down onto the
+  // flat dorsal deck of the hull GLB (the space scene shows it)
   setCupola() {
     this.railT = null;
     const c = POSES.cupola;
@@ -103,7 +98,7 @@ export class InteriorRig {
     if (this._prevFocus !== 'Starship') this.setFocus('Starship');
     this._prevFov = stage.camera.fov;
     this._prevMask = stage.camera.layers.mask;
-    stage.camera.fov = CAMERA.spaceFovBoarded;
+    stage.camera.fov = CAMERA.interiorFov;
     stage.camera.updateProjectionMatrix();
     stage.camera.layers.disable(HULL_GLASS_LAYER);
     stage.insertPassAfterScene(this.pass);
@@ -122,16 +117,18 @@ export class InteriorRig {
     stage.camera.layers.mask = this._prevMask;
     document.body.classList.remove('boarded');
     this.boarded = false;
-    if (this._prevFocus && this._prevFocus !== this.getFocus()) this.setFocus(this._prevFocus);
+    // unconditional: applyFocus('Starship') is idempotent and re-snaps the
+    // chase cam behind a ship that turned while we were inside
+    if (this._prevFocus) this.setFocus(this._prevFocus);
     return true;
   }
 
   toggle() { return this.boarded ? this.leave() : this.board(); }
 
-  // Pose coupling (SPEC 4.2), run every frame after shipView.update and after
+  // Pose coupling (design spec 4.2), run every frame after shipView.update and after
   // the arrival offset, before composer.render. The interior scene never
   // rotates: the ship's attitude is carried entirely by the space camera.
-  //   spaceCamera.position   = q * (D + P_m * 0.001) + grp.position
+  //   spaceCamera.position   = q * (anchor + P_m * 0.001) + grp.position
   //   spaceCamera.quaternion = q * R
   //   spaceCamera.up         = q * (0, 1, 0)
   // grp.position is not exactly the origin: it is ship.pos - focusPos, plus the

@@ -12,6 +12,7 @@ import * as THREE from 'three';
 import { ROOMS, WELL, hullToInterior } from './hull_frame.js?v=100';
 
 const GREY = 0x5a5f66;   // mid grey, albedo about 0.35
+const SEGS = 48;         // hole and tube share it, so no sliver of space shows at the seam
 
 export function buildSpikeDeck(interiorScene) {
   const grp = new THREE.Group();
@@ -46,7 +47,7 @@ export function buildSpikeDeck(interiorScene) {
   hole.absarc(wellC.x - cx, wellC.z - cz, WELL.radius, 0, Math.PI * 2, true);
   shape.holes.push(hole);
   const ceil = new THREE.Mesh(
-    new THREE.ShapeGeometry(shape, 48),
+    new THREE.ShapeGeometry(shape, SEGS),
     new THREE.MeshStandardMaterial({ color: GREY, roughness: 0.92, metalness: 0.0, side: THREE.DoubleSide })
   );
   ceil.rotation.x = Math.PI / 2;
@@ -57,7 +58,7 @@ export function buildSpikeDeck(interiorScene) {
   // BackSide, so from below we see its inner wall and straight out of the top.
   const wellH = WELL.topY - WELL.bottomY;
   const tube = new THREE.Mesh(
-    new THREE.CylinderGeometry(WELL.radius, WELL.radius, wellH, 40, 1, true),
+    new THREE.CylinderGeometry(WELL.radius, WELL.radius, wellH, SEGS, 1, true),
     new THREE.MeshStandardMaterial({ color: 0x4a4f56, roughness: 0.95, metalness: 0.0, side: THREE.BackSide })
   );
   tube.position.set(wellC.x, (WELL.bottomY + WELL.topY) / 2, wellC.z);

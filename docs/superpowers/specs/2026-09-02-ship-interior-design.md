@@ -85,7 +85,7 @@ Hull-frame to ship-local: `js/models.js` normalises `player.glb` with `yaw = Mat
 | Scene | `spaceScene` | `interiorScene` |
 | Layers | as today, plus `HullGlass` layer disabled while boarded | default |
 
-The space near plane of 1 m does not matter from inside: the only exterior geometry closer than that is the hull's own skin, and from inside its faces are back faces (culled). The hull parts you should see through a window (the wing beside the cupola, the engine humps aft) are 10 to 50 m away.
+The space near plane of 1 m does not matter from inside: the only exterior geometry closer than that is the hull's own skin, and from inside its faces are back faces (culled). The hull parts you should see through a window (the wing beside the cupola, the dorsal deck aft) are 10 to 50 m away.
 
 ### 4.4 What must be handled in the space scene while boarded
 
@@ -115,21 +115,22 @@ The space near plane of 1 m does not matter from inside: the only exterior geome
 
 ## 5. Where it fits: the hull
 
-Measured with `tools/hullprobe.mjs` on `models_src/hero/valkyrie.glb` (longest axis normalised to 110 m, as `loadModel` does). Coordinates are hull-centred, nose +Z, up +Y (GLB frame; see 4.2 for the render-frame flip).
+Measured on the deployed `player.glb` by vertical raycast (`tools/hullprobe.mjs`, 02.09.2026) in the game's own normalisation (Box3 centre, longest axis = wingspan = 110 m, as `loadModel` does). Coordinates are hull-centred, nose +Z, up +Y (GLB frame; see 4.2 for the render-frame flip). An earlier table came from a vertex probe on `models_src/hero/valkyrie.glb`, which carries a shield bubble mesh the deployed hull does not; its "engine humps at +10" do not exist on the rendered ship, and its scale was 4.2 % off.
 
-| Region | Z range | Width (X) | Thickness | Top skin (Y) |
+| Region | Z range | Usable half width (deck) | Top skin (Y) | Bottom skin (Y) |
 |---|---|---|---|---|
-| Aft body (between the engine humps) | −43 to −13 m | ±14 m usable | 13 to 19 m | +7.3 to +7.5, humps at +10 (Z −28, X ±5) |
-| Mid body | −13 to +13 m | ±12 m | 12 to 16 m | +4.7 to +8.2 (small dorsal bump at Z −8) |
-| Nose | +13 to +45 m | ±6 m tapering | 8 to 13 m | +4 falling to 0 |
-| Wing | −45 to −20 m | ±55 m | 4 to 12 m | 0 to +2.5 |
+| Dorsal deck | −39 to −22 m (the body ends at Z −39) | 14 m | flat 8.2 for \|X\| ≤ 2, 7.9 at ±8, falling to 3.5 at ±10 forward of Z −24 and 2.0 at ±14 by Z −22 | −6.0 aft to −5.0 |
+| Ridge | −22 to −10 m | 12 m | spine 8.2 falling to 7.5; 8 m wide at Z −18, 4 m at Z −14; shoulders 4.6 to 4.3 at ±5, 3.0 to 2.2 at ±10, 1.2 at ±12 by Z −10 | −4.9 to −4.5 |
+| Mid body | −10 to +12 m | 11 m at Z −10 narrowing to 5 m | spine 7.5 falling to 4.7; 4.3 to 3.0 at ±5; ±10 at 2.2 falling below 0 | −4.5 dipping to −8.1 at Z 0 |
+| Nose | +12 to +45 m | 5 m tapering to 1 m | 4.6 at ±2.5 by Z +10, 2.6 by Z +18, 0 by Z +30; ±5 from 3.0 to 1.0 by Z +18 | −7 rising to −4 |
+| Wing | −41 to −20 m | none (no deck) | 7.7 at ±10 aft of Z −24, 3.5 forward of it, out to ±54 | not probed |
 
 Design consequences:
 
-- **Deck floor at Y −1.5 m, ceiling at Y +3.0 m** through the aft and mid body. Corridors get a 2.6 m clear height, the hold 4.5 m under the exposed structure.
-- **Cupola at (X 0, Z −18) on the top skin at Y +7.4.** A flat saddle: two engine humps 2.6 m higher just aft, the dorsal bump forward, the wing spreading to both sides. The view from the bubble has the ship in it, which is what makes it *this* ship's cupola rather than a planetarium. Reached by a **4.4 m vertical well** with a ladder from the hold ceiling (+3.0) to the cupola ring (+7.4).
-- **Cockpit at Z +10 to +18, floor Y −1.0, window sill +2.2.** The forward taper narrows the room naturally to 5 m wide. The exterior gets a five-pane canopy patch here; the Valkyrie mesh has none.
-- **Engineering aft at Z −40 to −30**, under the humps: the tallest space on the deck, for the drive core.
+- **Deck floor at Y −1.5 m, ceiling at Y +3.0 m** through the dorsal deck and the ridge. Corridors get a 2.6 m clear height, the hold 4.5 m under the exposed structure. The bottom skin is at −4.2 or lower under every room; the outboard rooms (ceiling +1.1) sit under a skin of 1.2 to 2.5 at their outer wall, which is why the bunks and the airlock end at \|X\| 11 (at \|X\| 12 the skin is 0.6 by Z −6).
+- **Cupola at (X 0, Z −18) on the ridge, skin 8.06, ring at Y +8.1.** The ridge is 8 m wide there, so the 3.2 m bubble sits on the flat, and sideways the skin drops 3.7 m to the shoulders and the wing. From the seat: aft the flat dorsal deck to Z −39 and the engine exhaust beyond it, forward the spine falling away to the nose, the wing spreading to both sides. The view from the bubble has the ship in it, which is what makes it *this* ship's cupola rather than a planetarium. Reached by a **5.1 m vertical well** with a ladder from the hold ceiling (+3.0) to the cupola ring (+8.1).
+- **Cockpit at Z +10 to +18, floor Y −1.0, ceiling +2.2, window sill +2.2.** The top skin at ±2.5 is 4.6 falling to 2.6 there, so the room fits, and the canopy at the sill breaks the skin near Z 18 as a real canopy does. The forward taper narrows the room naturally to 5 m wide. The exterior gets a five-pane canopy patch here; the Valkyrie mesh has none.
+- **Engineering aft at Z −39 to −30**, under the dorsal deck: the tallest space on the deck (ceiling +4.0 under a skin of 8.0), for the drive core.
 
 ## 6. Lighting and grade
 
@@ -163,20 +164,20 @@ Positions in hull coordinates (X right, Y up, Z nose), sizes in metres. The play
 | Room | Position (Z, X) | Size (L×W×H) | Purpose and what you see |
 |---|---|---|---|
 | **Main hold** | Z −26 to −14, X ±6 | 12 × 12 × 4.5 | The heart. Curved padded bench around a round table with a slow holographic system map (the game's own body positions from `sim`). Engineering wall aft with pipes and the breaker panel. Ceiling open to structure and ducts. The cupola well rises from the aft-centre of the ceiling. |
-| **Cupola well and cupola** | Z −18, X 0 | well 1.8 Ø × 4.4 tall; cupola 3.2 Ø × 1.1 above skin | Ladder in the well, handrail ring at the top, a swivel seat under the bubble. Seven panes: one round on top, six trapezoids around, aluminium frames 8 cm wide. **The real universe outside**, with the wing, the humps and the exhaust glow of your own ship in frame. |
+| **Cupola well and cupola** | Z −18, X 0 | well 1.8 Ø × 5.1 tall; cupola 3.2 Ø × 1.1 above skin | Ladder in the well, handrail ring at the top, a swivel seat under the bubble. Seven panes: one round on top, six trapezoids around, aluminium frames 8 cm wide. **The real universe outside**, with the wing, the dorsal deck and the exhaust glow of your own ship in frame. |
 | **Ring corridor** | around the hold, Z −30 to −10, X ±9 to ±12 | 2.4 wide, 2.6 clear | The octagonal ribbed profile, the signature walk. Connects hold, cockpit tunnel, bunks, engineering. Floor grating with lit conduits beneath. |
 | **Cockpit tunnel** | Z −10 to +10, X 0 | 20 × 2.2 × 2.4 | Narrow, ribbed, three porthole slits on the starboard side (exterior counterpart patches). Builds anticipation for the cockpit. |
 | **Cockpit** | Z +10 to +18, X ±2.5 | 8 × 5 × 3.2 | Four seats (two forward, two aft), console with gauges and switches, overhead panel, five-pane window forward and up. Sitting in the pilot seat sets a seated pose (no flying yet, section 12). |
-| **Bunks** | Z −10 to −6, X +7 to +12 | 4 × 5 × 2.6 | Two bunks with curtains, a locker, a small amber lamp. The one warm, soft room. |
-| **Engineering** | Z −40 to −30, X ±5 | 10 × 10 × 5.5 | The drive core: a vertical cylinder with a slow-pulsing blue-white ring, gantry grating around it, the loudest hum, the red standby lamp, one panel that sparks now and then. |
-| **Airlock** | Z −10 to −7, X −12 to −9 (outboard wall at X −12) | 3 × 3 × 2.6 | Closed outer door with a small round window (another true aperture, side view). Later: EVA. |
+| **Bunks** | Z −10 to −6, X +7 to +11 | 4 × 4 × 2.6 | Two bunks with curtains, a locker, a small amber lamp. The one warm, soft room. |
+| **Engineering** | Z −39 to −30, X ±5 | 9 × 10 × 5.5 | The drive core: a vertical cylinder with a slow-pulsing blue-white ring, gantry grating around it, the loudest hum, the red standby lamp, one panel that sparks now and then. |
+| **Airlock** | Z −10 to −7, X −11 to −8 (outboard wall at X −11) | 3 × 3 × 2.6 | Closed outer door with a small round window (another true aperture, side view). Later: EVA. |
 | **Under-deck** | everywhere | (crawlspace, not walkable) | Two floor hatches in the corridor open to a lit crawlspace you can look into. Smuggler compartments. |
 
 Walk path: hold → cupola (climb, sit, look) → ring corridor → bunks → engineering → corridor → cockpit tunnel → cockpit (sit) → back. About 140 m of walking, two to three minutes.
 
 ### 7.3 The cupola and the exterior glass
 
-Seven-pane faceted design (a real spacecraft form, and the frames cast the shadows of section 6), radius 1.6 m, height 1.1 m above the skin, seat 0.45 m over the well platform at Y +7.4. Panes are `MeshPhysicalMaterial` with `transmission 1`, `roughness 0.05`, a scratch and dust normal map at low strength, drawn after the opaque deck. The frames are dark anodised aluminium with the trim-sheet bolts. A handrail ring at 1.0 m. From the seat, eye height is Y +8.6, 1.2 m above the skin: the two humps aft rise to +10 and are in frame; the whole sky forward and to the sides is open.
+Seven-pane faceted design (a real spacecraft form, and the frames cast the shadows of section 6), radius 1.6 m, height 1.1 m above the skin, seat 0.45 m over the well platform at Y +8.1. Panes are `MeshPhysicalMaterial` with `transmission 1`, `roughness 0.05`, a scratch and dust normal map at low strength, drawn after the opaque deck. The frames are dark anodised aluminium with the trim-sheet bolts. A handrail ring at 1.0 m. From the seat, eye height is Y +9.3, 1.2 m above the skin: the flat dorsal deck runs aft at 8.2 to Z −39 with the exhaust beyond it, the ridge falls away forward, the wing lies 3.7 m lower to both sides; the whole sky forward and to the sides is open.
 
 `HullGlass` is the exterior counterpart: the same cupola geometry at km scale (radius 0.0016) and the cockpit canopy, added as children of `shipView.grp` (not inside the normalised GLB subtree, so `playerPaint` does not black them out), with a warm emissive disc under the panes so the lit bubble reads from the chase cam on the night side. On a `THREE.Layers` bit the space camera disables while boarded.
 
@@ -246,7 +247,7 @@ Every milestone ends with screenshots of the running page (Heddle shot service o
 
 | # | Deliverable | Acceptance |
 |---|---|---|
-| **M0 Spike: the window is real** | `rig.js`, `hull_frame.js`, the second pass, focus lock, a bare box hold with a round hole in the ceiling at the cupola position, `hull_glass.js` cupola outside, `V` to board and leave. No dressing, no walk (camera on a fixed rail). | Screenshots show the real Earth and the ship's own humps through the hole, parallax changes along the rail; `WINDOWTEST=PASS`; `perf()` within budget. **Nothing else starts before this passes.** |
+| **M0 Spike: the window is real** | `rig.js`, `hull_frame.js`, the second pass, focus lock, a bare box hold with a round hole in the ceiling at the cupola position, `hull_glass.js` cupola outside, `V` to board and leave. No dressing, no walk (camera on a fixed rail). | Screenshots show the real Earth and the ship's own dorsal deck or wing through the hole, parallax changes along the rail; `WINDOWTEST=PASS`; `perf()` within budget. **Nothing else starts before this passes.** |
 | **M1 Shell and walk** | `deck.js`, all eight rooms as shell boxes plus untextured octagonal corridor and room shells, `walk.js` with ladder and seats, spawn, hint bar, mode button. | `WALKTEST=PASS` for the full path; screenshot set of the eight poses. |
 | **M2 Surfaces and light** | Asset pipeline, R2 upload, `trim.js`, `greeble.js` ribs and panels, floors, the cupola panes and frames, `lighting.js` with `CupolaSun` shadows and practicals, `HARD_TERMINATOR` opt-out. | Screenshot set; the frame shadow moves in a scripted roll; no blown-out surface. |
 | **M3 Cockpit and hold** | Console with gauges and switches, seats, five-pane canopy with exterior counterpart, hold bench and table with the live system map, engineering core. | Screenshot set; hologram follows `sim` in a time-warp test. |
@@ -256,7 +257,7 @@ Every milestone ends with screenshots of the running page (Heddle shot service o
 ## 14. Open questions, with the defaults this spec takes
 
 1. **Cupola form**: faceted seven-pane (default, casts frame shadows, real-spacecraft language) or a smooth bubble like a gun turret? One flag in `rooms/cupola.js`.
-2. **Deck height**: one deck with a raised cupola well (default) or a second half-deck under the humps for engineering? Default keeps the walk simple.
+2. **Deck height**: one deck with a raised cupola well (default) or a second half-deck under the dorsal deck for engineering? Default keeps the walk simple.
 3. **Sit-and-fly** in this round after all? It would add an M3b about the size of M3.
 4. **Sound**: the minimal hum set (default) or nothing until later?
 

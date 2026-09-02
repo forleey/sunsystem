@@ -186,6 +186,7 @@ function beamToName(name) {
   ui.toast('Beamed to ' + name);
 }
 function applyFocus(name, announce = true) {
+  if (rig.boarded && name !== 'Starship') { ui.setFocusSelect(focusName); return; }   // focus lock while boarded (design spec 4.4)
   focusName = name;
   ui.setFocusSelect(name);
   if (name === 'Starship') chaseQuat.copy(shipView.quat);   // snap behind, no swing-in
@@ -218,7 +219,6 @@ ui.initLabels(anchors);
 
 // ---------- input ----------
 const keys = new Set();
-const NO_KEYS = new Set();   // handed to the helm while boarded
 const DIGITS = { Digit1: 'Sun', Digit2: 'Mercury', Digit3: 'Venus', Digit4: 'Earth', Digit5: 'Mars', Digit6: 'Jupiter', Digit7: 'Saturn', Digit8: 'Uranus', Digit9: 'Neptune', Digit0: 'Pluto' };
 
 function startAndromedaJump() {
@@ -253,7 +253,8 @@ window.addEventListener('keydown', e => {
     return;
   }
   if (document.body.classList.contains('title')) return;   // menu is up — helm keys idle
-  if (e.code === 'KeyV') { rig.toggle(); return; }         // board / leave the ship interior
+  if (e.code === 'KeyV') { rig.toggle(); keys.clear(); return; }   // board / leave the ship interior
+  if (rig.boarded) { keys.clear(); return; }               // no helm, jumps, focus or beams from inside
   if (e.code === 'Backquote') { editor.toggle(); return; }  // ` toggles the editor
   if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();  // helm keys never drive UI controls
   keys.add(e.code);
@@ -437,9 +438,9 @@ function frameBody(now) {
   focusPos(fPos);
   // battle mode: combat impulse limiter, max speed (and with it thrust accel,
   // which scales off it) is cut to 20% so dogfights stay inside the arena.
-  // Boarded: the helm keys idle (the walk controller takes them in M1).
-  const helmKeys = rig.boarded ? NO_KEYS : keys;
-  shipView.update(fPos, stage.camera, dtWall, helmKeys, ui.state.shipG * (combat.enabled ? 0.2 : 1));
+  // Boarded: keys stays empty (the keydown handler drops everything), so the
+  // helm idles until the walk controller takes the keys in M1.
+  shipView.update(fPos, stage.camera, dtWall, keys, ui.state.shipG * (combat.enabled ? 0.2 : 1));
 
   // engine bed: volume is keyed to how long thrust is held, not to throttle.
   // Holding Space ramps it up over ~1.8 s; releasing fades it over ~1.1 s.
@@ -583,8 +584,7 @@ document.getElementById('b-ship').addEventListener('click', () => {
   startArrival();
 });
 
-window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, editor, keys, renderTest, applyFocus, beamToName, tick: t => frameBody(t) };
-window.__dbg.interior = { rig };
+window.__dbg = { stage, sim, system, shipView, sky, fleet, music, combat, editor, keys, renderTest, applyFocus, beamToName, interior: { rig }, tick: t => frameBody(t) };
 console.log('sunsystem boot ok');
 
 applyFocus('Starship', false);
@@ -599,4 +599,4 @@ music.onTrackChange(music.title);
 watchCtx();
 requestAnimationFrame(frame);
 // ?board=1: skip the menu and boot straight into the interior (dev deep link)
-if (new URLSearchParams(location.search).get('board') === '1') { startGame('free'); rig.board(); }
+if (new URLSearchParams(location.search).get('board') === '1') { startGame('free'); rig.board(); keys.clear(); }

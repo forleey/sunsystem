@@ -1,10 +1,10 @@
 // Unit check for js/interior/hull_frame.js: every room box has to sit inside
-// the hull envelope of SPEC section 5 over its whole Z range. The cupola well
-// is the one exception and is checked separately (it pierces the top skin by
-// design). Run: node tools/hull_frame_check.mjs
+// the hull envelope of the design spec section 5 over its whole Z range. The
+// cupola well is the one exception and is checked separately (it pierces the
+// top skin by design). Run: node tools/hull_frame_check.mjs
 import {
-  ROOMS, WELL, CUPOLA, ENVELOPE, ENGINE_HUMPS, envelopeAt, hullToInterior, hullToLocalKm,
-  DECK_ANCHOR_KM, TOP_SKIN_AT_CUPOLA, railPointHull, RAIL, POSES,
+  ROOMS, WELL, CUPOLA, ENVELOPE, RIDGE, envelopeAt, hullToInterior, M_TO_KM,
+  DECK_ANCHOR_KM, TOP_SKIN_AT_CUPOLA, railPointHull, POSES,
 } from '../js/interior/hull_frame.js';
 
 const EPS = 1e-6;
@@ -12,14 +12,16 @@ const fails = [];
 const fail = (m) => fails.push(m);
 const near = (a, b, tol = 1e-9) => Math.abs(a - b) <= tol;
 
-// walk the room's Z range in 0.25 m steps (plus both ends) and take the worst
-// envelope it ever sees: a room crossing a region border is checked in both.
-function worstEnvelope(z0, z1) {
-  const zs = [z0, z1];
-  for (let z = z0; z < z1; z += 0.25) zs.push(z);
+// walk the room's Z range in 0.25 m steps (plus both ends, nudged inward: a
+// room flush with a row border belongs to its own row, not the neighbour) and
+// take the worst envelope it ever sees at its outermost X: a room crossing a
+// row border is checked in both rows.
+function worstEnvelope(z0, z1, absX) {
+  const zs = [z0 + EPS, z1 - EPS];
+  for (let z = z0 + EPS; z < z1; z += 0.25) zs.push(z);
   let halfWidth = Infinity, topY = Infinity, bottomY = -Infinity, region = null;
   for (const z of zs) {
-    const e = envelopeAt(z);
+    const e = envelopeAt(z, absX);
     if (e.halfWidth < halfWidth) { halfWidth = e.halfWidth; region = e.region; }
     topY = Math.min(topY, e.topY);
     bottomY = Math.max(bottomY, e.bottomY);
@@ -30,15 +32,15 @@ function worstEnvelope(z0, z1) {
 let rooms = 0;
 for (const [key, r] of Object.entries(ROOMS)) {
   rooms++;
-  const e = worstEnvelope(r.z[0], r.z[1]);
+  const maxAbsX = Math.max(Math.abs(r.x[0]), Math.abs(r.x[1]));
+  const e = worstEnvelope(r.z[0], r.z[1], maxAbsX);
   const label = `${key} (${r.name})`;
   if (e.region === null || !(e.halfWidth > 0)) fail(`${label}: Z ${r.z} leaves the decked hull`);
   if (r.z[0] >= r.z[1]) fail(`${label}: empty Z range`);
   if (r.x[0] >= r.x[1]) fail(`${label}: empty X range`);
   if (r.floorY >= r.ceilY) fail(`${label}: ceiling not above floor`);
-  const maxAbsX = Math.max(Math.abs(r.x[0]), Math.abs(r.x[1]));
   if (maxAbsX > e.halfWidth + EPS) fail(`${label}: |X| ${maxAbsX} > half width ${e.halfWidth.toFixed(2)} (${e.region})`);
-  if (r.ceilY > e.topY + EPS) fail(`${label}: ceiling ${r.ceilY} above top skin ${e.topY.toFixed(2)} (${e.region})`);
+  if (r.ceilY > e.topY + EPS) fail(`${label}: ceiling ${r.ceilY} above top skin ${e.topY.toFixed(2)} at |X| ${maxAbsX} (${e.region})`);
   if (r.floorY < e.bottomY - EPS) fail(`${label}: floor ${r.floorY} below hull bottom ${e.bottomY.toFixed(2)} (${e.region})`);
 }
 
@@ -60,11 +62,21 @@ for (let i = 0; i < boxes.length; i++) {
   }
 }
 
-// the well and the cupola pierce the skin on purpose: only their fixed numbers
+// the envelope rows must tile the deck without gaps or overlaps in Z
+const rows = [...ENVELOPE].sort((a, b) => a.z[0] - b.z[0]);
+for (let i = 1; i < rows.length; i++) {
+  if (!near(rows[i - 1].z[1], rows[i].z[0])) fail(`envelope rows ${rows[i - 1].name} and ${rows[i].name} do not meet in Z`);
+}
+
+// the well and the cupola pierce the skin on purpose: only their fixed numbers.
+// The ring sits ON the measured skin, the bubble fits the flat of the ridge.
 if (!near(WELL.radius, 0.9)) fail(`well radius ${WELL.radius} is not 0.9 (1.8 m opening)`);
-if (!near(WELL.topY, TOP_SKIN_AT_CUPOLA)) fail(`well top ${WELL.topY} is not the top skin ${TOP_SKIN_AT_CUPOLA}`);
+if (!near(WELL.topY, CUPOLA.ringY)) fail(`well top ${WELL.topY} is not the cupola ring ${CUPOLA.ringY}`);
 if (!near(WELL.bottomY, ROOMS.hold.ceilY)) fail(`well bottom ${WELL.bottomY} is not the hold ceiling ${ROOMS.hold.ceilY}`);
-if (!near(CUPOLA.ringY, 7.4)) fail(`cupola ring ${CUPOLA.ringY} is not at the skin height 7.4`);
+if (CUPOLA.ringY < TOP_SKIN_AT_CUPOLA) fail(`cupola ring ${CUPOLA.ringY} is inside the skin ${TOP_SKIN_AT_CUPOLA}`);
+if (CUPOLA.ringY - TOP_SKIN_AT_CUPOLA > 0.1) fail(`cupola ring ${CUPOLA.ringY} floats ${(CUPOLA.ringY - TOP_SKIN_AT_CUPOLA).toFixed(2)} m over the skin`);
+if (CUPOLA.z < RIDGE.z[0] || CUPOLA.z > RIDGE.z[1]) fail(`cupola Z ${CUPOLA.z} is off the ridge ${RIDGE.z}`);
+if (Math.abs(CUPOLA.x) + CUPOLA.radius > RIDGE.halfWidth + EPS) fail(`cupola radius ${CUPOLA.radius} does not fit the ridge half width ${RIDGE.halfWidth}`);
 if (!(WELL.topY - WELL.bottomY > 0)) fail('well has no height');
 if (Math.abs(WELL.x - CUPOLA.x) > EPS || Math.abs(WELL.z - CUPOLA.z) > EPS) fail('well and cupola are not on the same axis');
 // the well must rise inside the hold footprint, otherwise it opens into vacuum
@@ -73,24 +85,22 @@ if (WELL.z - WELL.radius < ROOMS.hold.z[0] || WELL.z + WELL.radius > ROOMS.hold.
   fail('well opening is not inside the hold footprint');
 }
 
-// frame conversions: hull -> interior mirrors X and Z, hull -> ship-local km
-// is the same flip at 1/1000, and the deck anchor is the hull centre.
+// frame conversions: hull -> interior mirrors X and Z, the km scale is 1/1000,
+// the deck anchor is the hull centre, and the rail runs under the cupola.
 {
   const i = hullToInterior(3, 2, -18);
   if (!near(i.x, -3) || !near(i.y, 2) || !near(i.z, 18)) fail('hullToInterior does not mirror X and Z');
-  const k = hullToLocalKm(3, 2, -18);
-  if (!near(k.x, -0.003) || !near(k.y, 0.002) || !near(k.z, 0.018)) fail('hullToLocalKm is not the mirrored millimetre-scale flip');
+  if (!near(M_TO_KM, 0.001)) fail('M_TO_KM is not 1/1000');
   if (DECK_ANCHOR_KM.x || DECK_ANCHOR_KM.y || DECK_ANCHOR_KM.z) fail('deck anchor is not the hull centre');
   const a = railPointHull(0), b = railPointHull(1), m = railPointHull(0.5);
-  if (!near(a.x, RAIL.from.x) || !near(b.x, RAIL.to.x) || !near(m.x, 0)) fail('rail does not run from RAIL.from.x to RAIL.to.x through 0');
+  if (!near(a.x, POSES.rail.from.x) || !near(b.x, POSES.rail.to.x) || !near(m.x, 0)) fail('rail does not run from POSES.rail.from.x to POSES.rail.to.x through 0');
   if (!near(m.z, CUPOLA.z)) fail('rail does not run under the cupola');
   const c = POSES.cupola;
-  if (!near(c.eye.y, CUPOLA.eyeY) || !near(c.eye.z, CUPOLA.z)) fail('cupola pose does not sit at the cupola eye point');
-  if (!near(c.lookAt.z, ENGINE_HUMPS.z) || !near(c.lookAt.y, ENGINE_HUMPS.y)) fail('cupola pose does not look at the engine humps');
+  if (!(c.lookAt.z < c.eye.z && c.lookAt.y < c.eye.y)) fail('cupola pose does not look aft and down');
 }
 
 if (fails.length) {
   for (const f of fails) console.error('FAIL ' + f);
   process.exit(1);
 }
-console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, ${pairs} room pairs without shared volume, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m, ${ENVELOPE.length} envelope regions`);
+console.log(`HULLFRAME result=PASS ${rooms} rooms inside the section 5 envelope, ${pairs} room pairs without shared volume, well 1.8 m at the cupola, ring at +${CUPOLA.ringY} m on skin +${TOP_SKIN_AT_CUPOLA}, ${ENVELOPE.length} envelope rows`);
